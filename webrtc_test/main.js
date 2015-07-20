@@ -34,12 +34,23 @@ var onReceiveMessages = function(message) {
 	if(signal.sender !== 'client')
 		return;
 	//Assume client will send offer to soapbox
-	if (signal.sdp) {		
+	if (signal.sdp) {				
+		if(!PeerConnection) {
+			PeerConnection = new RTCPeerConnection(configuration);
+		    trace('Created local peer connection object PeerConnection');
+			PeerConnection.onicecandidate = gotLocalIceCandidate;
+			PeerConnection.addStream(localStream);
+		}
+		
 		PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp), function () {
 			PeerConnection.createAnswer(gotDescription, onCreateAnswerError);
 		});
 	} else if(signal.ice) {
 		PeerConnection.addIceCandidate(new RTCIceCandidate(signal.ice));
+	} else if(signal.stopWatching) {
+		PeerConnection.close();
+		PeerConnection = null;
+		
 	}
 };
 

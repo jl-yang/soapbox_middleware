@@ -25,3 +25,12 @@ stun.xten.com
 https://plugin.temasys.com.sg/demo/samples/web/content/peerconnection/trickle-ice/index.html
 
 
+##How to start rabbitmq server in restricted admin access PC
+1. Open CMD in Admin mode
+2. Temporarily set homedrive and homepath env variables by typing: 
+    set homedrive=C:
+	set homepath=\Windows
+   So that the path of .erlang.cookie file will be located in correct %homedrive%/%homepath% (Usually it is in C:\Windows)
+3. Start rabbitmq server in the background by typing:
+	rabbitmq-server -detached
+	

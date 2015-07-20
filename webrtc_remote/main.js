@@ -88,6 +88,13 @@ function stop() {
 	trace('Stop watching');
 	PeerConnection.close();
 	PeerConnection = null;
+	
+	sendWebStompMessage(
+		{
+			sender: "client",
+			stopWatching: true
+		}
+	);
 }
 
 function gotRemoteStream(event) {
