@@ -8,15 +8,10 @@ var sdpConstraints = {
 	}
 };
 
-var ws = new SockJS('localhost:15674/stomp');
-var soapbox = Stomp.over(ws);
-soapbox.heartbeat.outgoing = 0;
-soapbox.heartbeat.incoming = 0;
-var send_queue = "/exchange/logs";
-var receive_queue = "/exchange/logs";
-
-var debug_function = soapbox.debug;
-//soapbox.debug = null;
+var ws;
+var soapbox;
+var send_queue;
+var receive_queue;
 
 var localStream;
 
@@ -84,15 +79,27 @@ var sendWebStompMessage = function(msgObj) {
 	soapbox.send(send_queue, {}, JSON.stringify(msgObj));
 };
 
+//Remember to put function objects first
+
 /********
 	Connect to signaling server
 ********/
-//Remember to put function objects first
-soapbox.connect('guest', 'guest', onWebStompConnect, onWebStompError, '/');
-
-/********
+function connect_to_signaling_server(server_url, send_queue, receive_queue, user_name, password, vhost)
+{	
+	ws = new SockJS(server_url || 'localhost:15674/stomp');
+	soapbox = Stomp.over(ws);
+	soapbox.heartbeat.outgoing = 0;
+	soapbox.heartbeat.incoming = 0;
+	soapbox.debug = null;
 	
-********/
+	this.send_queue = send_queue || "/exchange/logs";
+	this.receive_queue = receive_queue || "/exchange/logs";
+	
+	soapbox.connect(user_name || 'guest', password || 'guest', onWebStompConnect, onWebStompError, vhost || '/');
+}
+
+connect_to_signaling_server();
+
 
 /********
 	Get local video stream from camera.

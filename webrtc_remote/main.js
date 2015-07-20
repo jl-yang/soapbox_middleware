@@ -6,7 +6,7 @@ var PeerConnection;
 var remoteVideo = document.getElementById('remoteVideo');
 
 var watchButton = document.getElementById('watchButton');
-watchButton.onclick = watch;
+watchButton.onclick = wait_for_speech;
 var stopButton = document.getElementById('stopButton');
 stopButton.onclick = stop;
 watchButton.disabled = false;
@@ -19,13 +19,8 @@ client.heartbeat.incoming = 0;
 var send_queue = "/exchange/logs";
 var receive_queue = "/exchange/logs";
 
-var sdpConstraints = {
-	optional: [],
-	mandatory: {
-		OfferToReceiveAudio: true,
-		OfferToReceiveVideo: true
-	}
-};
+var debug_function = client.debug;
+//client.debug = null;
 
 var configuration = {
 	iceServers: [
@@ -38,13 +33,13 @@ var configuration = {
 };
 
 remoteVideo.addEventListener('loadedmetadata', function() {
-	trace('Remote video currentSrc: ' + this.currentSrc + 
+	console.log('Remote video currentSrc: ' + this.currentSrc + 
 		', videoWidth: ' + this.videoWidth + 
 		'px, videoHeight: ' + this.videoHeight + 'px');
 });
 
 var onWebStompError =  function() {
-	console.log('Stomp connection error');
+	console.log('Failed to connect to signaling server');
 };
 
 var sendWebStompMessage = function(msgObj) {
@@ -55,79 +50,110 @@ var sendWebStompMessage = function(msgObj) {
 //Handle incoming messages from signaling server
 var onReceiveMessages = function(message) {
 	var signal = JSON.parse(message.body);
-	if(signal.sender !== 'soapbox')
+	
+	if(signal.receiver !== 'relay-server')
+	{	
 		return;
-	if (signal.sdp) {
-		PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-	} else if(signal.ice) {
-		PeerConnection.addIceCandidate(new RTCIceCandidate(signal.ice));
+	}
+	
+	if (signal.type == "offer" && signal.data.sdp) {				
+		if(!PeerConnection) {
+			PeerConnection = new RTCPeerConnection(configuration);
+		    console.log('Created local peer connection object PeerConnection');
+			PeerConnection.onicecandidate = gotLocalIceCandidate;
+			PeerConnection.onaddstream = gotRemoteStream;
+		}
+		
+		PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp), function () {
+			PeerConnection.createAnswer(gotLocalDescription, onCreateAnswerError);
+		});
+	} 
+	else if(signal.type == "ice-candidate" && signal.data.ice) {
+		PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
+	}
+	else if(signal.type == "stop_speech_transmission") {
+		PeerConnection.close();
+		PeerConnection = null;
+		console.log("Speech transmission stopped");
 	}
 };
 
 var onWebStompConnect = function() {
 	var id = client.subscribe(receive_queue, onReceiveMessages);
+	console.log("Connected to signaling server");
 };
 
 client.connect('guest', 'guest', onWebStompConnect, onWebStompError, '/');
 
-function watch() {
+wait_for_speech();
+
+function wait_for_speech() {
 	watchButton.disabled = true;
 	stopButton.disabled = false;
 	if(!PeerConnection) {
 		PeerConnection = new RTCPeerConnection(configuration);
-		PeerConnection.onicecandidate = gotIceCandidate;
+		PeerConnection.onicecandidate = gotLocalIceCandidate;
 		PeerConnection.onaddstream = gotRemoteStream;
-	}
-	
-	PeerConnection.createOffer(gotDescription, onCreateOfferError, sdpConstraints);
+	}	
 }
 
 function stop() {
 	watchButton.disabled = false;
 	stopButton.disabled = true;
-	trace('Stop watching');
-	PeerConnection.close();
-	PeerConnection = null;
 	
+	if(PeerConnection && PeerConnection.signalingState != "closed") {
+		PeerConnection.close();
+		PeerConnection = null;	
+		
+		console.log('Stop watching/waiting for speech');
+		
+		send_message("soapbox",	"stop_speech_transmission", null);
+	}
+	else
+		console.log("Stop speech failure");
+}
+
+//Compatible usage
+function send_message(receiver, type, payload)
+{
 	sendWebStompMessage(
 		{
-			sender: "client",
-			stopWatching: true
+			'sender': 'relay-server', //by default
+			'receiver': receiver,
+			'timestamp': new Date().toISOString(),
+			'type': type,
+			'data': payload
 		}
 	);
 }
 
 function gotRemoteStream(event) {
     remoteVideo.src = URL.createObjectURL(event.stream);
-    trace('Received remote stream');
+    console.log('Received remote stream');
 }
 
 //Description means SDP
-function gotDescription(description) {
-    PeerConnection.setLocalDescription(description,	function () {
-		sendWebStompMessage(
-			{
-				'sender': 'client',
-				'sdp': description
-			}
-		);
-		trace('Offer sdp from PeerConnection: \n');
-	}, function () { trace("Set local description error");});  
+function gotLocalDescription(description) {
+    PeerConnection.setLocalDescription(
+		description,	
+		function () {
+			send_message('soapbox',	'answer', {'sdp': description});
+			console.log('Answer sdp generated');
+		}, 
+		function () { 
+			console.log("Set local description error");
+		}
+	);  
 }
 
-function gotIceCandidate(event) {
-	if(!event.candidate) {
-        sendWebStompMessage(
-			{
-				'sender': 'client',
-				'ice': event.candidate
-			}
-		);
+function gotLocalIceCandidate(event) {
+    if (event.candidate) {
+		send_message("soapbox", 'ice-candidate', {'ice': event.candidate});
+        console.log('Local ICE candidate gathered');
     }
 }
 
-function onCreateOfferError(error) {
-	trace('Failed to create offer: ' + error.toString());
+
+function onCreateAnswerError(error) {
+	console.log('Failed to create answer: ' + error.toString());
 }
-
-

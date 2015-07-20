@@ -9,6 +9,8 @@ mq_params = pika.ConnectionParameters(
 receive_client_exchange = "logs"
 receive_client_routing_key = "logs"
 
+
+
 def handleIncomingMessage(ch, method, properties, body):
 	msgObj = json.loads(body)
 	print " [x] Received %r" % (msgObj,)
