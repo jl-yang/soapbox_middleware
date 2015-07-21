@@ -1,0 +1,13 @@
+{
+	"sender": "relay-server",
+	"receiver": "soapbox",
+	"timestamp": "2013-08-28T11:51:47.746Z",
+	"type": "ice-candidate",
+	"data": {
+		"sdp": XXX,
+		"ice": XXX
+	}
+}
+
+
+type: ice-candidate, offer, answer, stop_speech_transmission

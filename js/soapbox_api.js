@@ -1,31 +1,21 @@
 'use strict'
 
-var sdpConstraints = {
-	optional: [],
-	mandatory: {
-		OfferToReceiveAudio: false,
-		OfferToReceiveVideo: false
-	}
+var soapbox_global_variables = {
+	sdpConstraints: {
+		optional: [],
+		mandatory: {
+			OfferToReceiveAudio: false,
+			OfferToReceiveVideo: false
+		}
+	},
+	ws: null,
+	soapbox: null,
+	send_queue: null,
+	receive_queue: null,
+	localStream: null,
+	PeerConnection: null
 };
 
-var ws;
-var soapbox;
-var send_queue;
-var receive_queue;
-
-var localStream;
-
-var PeerConnection;
-
-/***Should be discarded out of API***/
-var localVideo = document.getElementById('localVideo');
-
-localVideo.addEventListener('loadedmetadata', function() {
-    console.log('Local video currentSrc: ' + this.currentSrc + 
-        ', videoWidth: ' + this.videoWidth + 
-        'px, videoHeight: ' + this.videoHeight + 'px');
-});
-/************************************/
 
 //Try to tell signaling server that it is about to close
 window.onbeforeunload = function(event) {
@@ -48,25 +38,26 @@ var onReceiveMessages = function(message) {
 	
 	if(signal.receiver !== 'soapbox')
 	{	
-		return;
+		return signal;
 	}		
 	
 	//Assume soapbox will fire the offer
 	if (signal.type == "answer" && signal.data.sdp) {				
-		PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp));
+		soapbox_global_variables.PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp));
 	} 
 	else if(signal.type == "ice-candidate" && signal.data.ice) {
-		PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
+		soapbox_global_variables.PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
 	} 
 	else if(signal.type == "stop_speech_transmission") {
-		PeerConnection.close();
-		PeerConnection = null;
+		soapbox_global_variables.PeerConnection.close();
+		soapbox_global_variables.PeerConnection = null;
 		console.log("Speech transmission stopped");
 	}
+	return signal;
 };
 
 var onWebStompConnect = function(x) {
-	var id = soapbox.subscribe(receive_queue, onReceiveMessages);
+	var id = soapbox_global_variables.soapbox.subscribe(soapbox_global_variables.receive_queue, onReceiveMessages);
 	console.log("Connected to signaling server");
 };
 
@@ -76,7 +67,7 @@ var onWebStompError =  function(error) {
 
 var sendWebStompMessage = function(msgObj) {
 	//Should use JSON format here, and use JSON.stringify(msgObj) in send method
-	soapbox.send(send_queue, {}, JSON.stringify(msgObj));
+	soapbox_global_variables.soapbox.send(soapbox_global_variables.send_queue, {}, JSON.stringify(msgObj));
 };
 
 //Remember to put function objects first
@@ -86,61 +77,60 @@ var sendWebStompMessage = function(msgObj) {
 ********/
 function connect_to_signaling_server(server_url, send_queue, receive_queue, user_name, password, vhost)
 {	
-	ws = new SockJS(server_url || 'localhost:15674/stomp');
-	soapbox = Stomp.over(ws);
-	soapbox.heartbeat.outgoing = 0;
-	soapbox.heartbeat.incoming = 0;
-	soapbox.debug = null;
+	soapbox_global_variables.ws = new SockJS(server_url || 'localhost:15674/stomp');
+	soapbox_global_variables.soapbox = Stomp.over(soapbox_global_variables.ws);
+	soapbox_global_variables.soapbox.heartbeat.outgoing = 0;
+	soapbox_global_variables.soapbox.heartbeat.incoming = 0;
+	soapbox_global_variables.soapbox.debug = null;
+	window.soapbox_global_variables.send_queue = send_queue || "/exchange/logs";
+	window.soapbox_global_variables.receive_queue = receive_queue || "/exchange/logs";
 	
-	this.send_queue = send_queue || "/exchange/logs";
-	this.receive_queue = receive_queue || "/exchange/logs";
-	
-	soapbox.connect(user_name || 'guest', password || 'guest', onWebStompConnect, onWebStompError, vhost || '/');
+	soapbox_global_variables.soapbox.connect(user_name || 'guest', password || 'guest', onWebStompConnect, onWebStompError, vhost || '/');
 }
-
-connect_to_signaling_server();
-
-
-/********
-	Get local video stream from camera.
-	It will be handled by Soapbox website
-********/
-
 
 /********
 	Add the local stream when it is ready.
 	Then start streaming, but the broadcast is controlled by signaling server.
 	Soapbox call this function to start speech, and start logging since then
 ********/
-function start_speech(stream) {
-	//Check if speech has started
-	var status = check_speech_transmission_status();
-	if (status) {
-		console.log("Speech has already started");
-		return;
-	}
-	
-	//Create PeerConnection, set onicecandidate
-	PeerConnection = new RTCPeerConnection(configuration);
-    console.log('Created local peer connection object PeerConnection');	
-	PeerConnection.onicecandidate = gotLocalIceCandidate;
-	
-	//Add local stream
-	localStream = stream;
-	PeerConnection.addStream(stream);
-	console.log('Added localStream to PeerConnection');
-	
-	//Create offer 
-	PeerConnection.createOffer(gotLocalDescription, onCreateOfferError, sdpConstraints);
+function start_speech(stream, delay_time) {	
+	window.setTimeout(function(){
+			//Check if speech has started
+			var status = check_speech_transmission_status();
+			if (status) {
+				console.log("Speech has already started");
+				return;
+			}
+			
+			//Create soapbox_global_variables.PeerConnection, set onicecandidate
+			soapbox_global_variables.PeerConnection = new RTCPeerConnection(configuration);
+			console.log('Created local peer connection object PeerConnection');	
+			soapbox_global_variables.PeerConnection.onicecandidate = gotLocalIceCandidate;
+			
+			//Add local stream
+			soapbox_global_variables.localStream = stream;
+			soapbox_global_variables.PeerConnection.addStream(stream);
+			console.log('Added localStream to PeerConnection');
+			
+			//Create offer 
+			soapbox_global_variables.PeerConnection.createOffer(
+				gotLocalDescription, 
+				function onCreateOfferError(error) {
+					console.log('Failed to create offer: ' + error.toString());
+				}, 
+				soapbox_global_variables.sdpConstraints
+			);
+		}, typeof delay_time !== "number" ? 2000 : delay_time
+	);
 }
 
 /********
 	If there is some problem, then try another time to start speech transmission
 ********/
 function reset_speech(stream) {
-	if(PeerConnection && PeerConnection.signalingState != "closed") {
-		PeerConnection.close();
-		PeerConnection = null;
+	if(soapbox_global_variables.PeerConnection && soapbox_global_variables.PeerConnection.signalingState != "closed") {
+		soapbox_global_variables.PeerConnection.close();
+		soapbox_global_variables.PeerConnection = null;
 		
 		console.log("Try again the speech transmission");
 		
@@ -154,9 +144,9 @@ function reset_speech(stream) {
 	
 ********/
 function stop_speech() {
-	if(PeerConnection && PeerConnection.signalingState != "closed") {
-		PeerConnection.close();
-		PeerConnection = null;
+	if(soapbox_global_variables.PeerConnection && soapbox_global_variables.PeerConnection.signalingState != "closed") {
+		soapbox_global_variables.PeerConnection.close();
+		soapbox_global_variables.PeerConnection = null;
 	
 		send_message("relay-server", "stop_speech_transmission", null);
 	}
@@ -168,11 +158,11 @@ function stop_speech() {
 	
 ********/
 function check_speech_transmission_status() {
-	if(!PeerConnection || PeerConnection.iceConnectionState == "new"
-		|| PeerConnection.iceConnectionState == "checking")
+	if(!soapbox_global_variables.PeerConnection || soapbox_global_variables.PeerConnection.iceConnectionState == "new"
+		|| soapbox_global_variables.PeerConnection.iceConnectionState == "checking")
 		return false;
-	else if(PeerConnection.iceConnectionState == "closed") {
-		PeerConnection = null;
+	else if(soapbox_global_variables.PeerConnection.iceConnectionState == "closed") {
+		soapbox_global_variables.PeerConnection = null;
 		return false;
 	}		
 	else
@@ -195,46 +185,9 @@ function send_message(receiver, type, payload)
 	);
 }
 
-/********
-	
-********/
-function set_receive_message_handler()
-{
-	
-}
-
-start();
-
-function start() {
-    console.log('Requesting local stream');
-    navigator.getUserMedia(
-        {
-            video: true,
-            audio: true
-        }, 
-        gotStream, 
-		onGetUserMediaError
-	);
-}
-
-function gotStream(stream) {   
-    console.log('Received local stream');
-	localStream = stream;
-    localVideo.src = URL.createObjectURL(stream);   
-
-	if(localStream.getVideoTracks().length > 0) {
-        console.log('Using video device: ' + localStream.getVideoTracks()[0].label);
-    }
-    if(localStream.getAudioTracks().length > 0) {
-        console.log('Using audio device: ' + localStream.getAudioTracks()[0].label);
-    }
-	
-	start_speech(localStream);	
-}
-
 //Description means SDP
 function gotLocalDescription(description) {
-    PeerConnection.setLocalDescription(
+    soapbox_global_variables.PeerConnection.setLocalDescription(
 		description,
 		function () {			
 			send_message("relay-server", "offer", {'sdp': description});
@@ -256,14 +209,6 @@ function gotLocalIceCandidate(event) {
 }
 
 
-
-function onGetUserMediaError(error) {
-	console.log('navigator.getUserMedia error: ', error);
-}
-
-function onCreateOfferError(error) {
-	console.log('Failed to create offer: ' + error.toString());
-}
 
 
 
