@@ -8,7 +8,7 @@ var sdpConstraints = {
 	}
 };
 
-var ws = new SockJS('localhost:15674/stomp');
+var ws = new SockJS('85.23.168.158:15674/stomp');
 var soapbox = Stomp.over(ws);
 soapbox.heartbeat.outgoing = 0;
 soapbox.heartbeat.incoming = 0;

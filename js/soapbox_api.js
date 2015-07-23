@@ -32,38 +32,6 @@ var configuration = {
 	}]
 };
 
-//Handle incoming messages from signalling server
-var onReceiveMessages = function(message) {
-	var signal = JSON.parse(message.body);
-	
-	if(signal.receiver !== 'soapbox')
-	{	
-		return signal;
-	}		
-	
-	//Assume soapbox will fire the offer
-	if (signal.type == "answer" && signal.data.sdp) {				
-		soapbox_global_variables.PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp));
-	} 
-	else if(signal.type == "ice-candidate" && signal.data.ice) {
-		soapbox_global_variables.PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
-	} 
-	else if(signal.type == "stop_speech_transmission") {
-		soapbox_global_variables.PeerConnection.close();
-		soapbox_global_variables.PeerConnection = null;
-		console.log("Speech transmission stopped");
-	}
-	return signal;
-};
-
-var onWebStompConnect = function(x) {
-	var id = soapbox_global_variables.soapbox.subscribe(soapbox_global_variables.receive_queue, onReceiveMessages);
-	console.log("Connected to signaling server");
-};
-
-var onWebStompError =  function(error) {
-	console.log('Failed to connect to signaling server: ' + error.toString());
-};
 
 var sendWebStompMessage = function(msgObj) {
 	//Should use JSON format here, and use JSON.stringify(msgObj) in send method
@@ -75,7 +43,10 @@ var sendWebStompMessage = function(msgObj) {
 /********
 	Connect to signaling server
 ********/
-function connect_to_signaling_server(server_url, send_queue, receive_queue, user_name, password, vhost)
+function connect_to_signaling_server(server_url, send_queue, receive_queue, user_name, password, vhost, 
+									onConnectSignalingServerSuccess, 
+									onConnectSignalingServerError,
+									onReceiveMessage)
 {	
 	soapbox_global_variables.ws = new SockJS(server_url || 'localhost:15674/stomp');
 	soapbox_global_variables.soapbox = Stomp.over(soapbox_global_variables.ws);
@@ -85,7 +56,48 @@ function connect_to_signaling_server(server_url, send_queue, receive_queue, user
 	window.soapbox_global_variables.send_queue = send_queue || "/exchange/logs";
 	window.soapbox_global_variables.receive_queue = receive_queue || "/exchange/logs";
 	
-	soapbox_global_variables.soapbox.connect(user_name || 'guest', password || 'guest', onWebStompConnect, onWebStompError, vhost || '/');
+	soapbox_global_variables.soapbox.connect(
+		user_name || 'guest', 
+		password || 'guest', 
+		//OnConnected
+		function(x) {
+			var id = soapbox_global_variables.soapbox.subscribe(
+				soapbox_global_variables.receive_queue, 
+				//Handle incoming messages from signalling server
+				function(message) {
+					var signal = JSON.parse(message.body);
+					
+					if(signal.receiver !== 'soapbox')
+					{	
+						return signal;
+					}		
+					
+					//Assume soapbox will fire the offer
+					if (signal.type == "answer" && signal.data.sdp) {				
+						soapbox_global_variables.PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp));
+					} 
+					else if(signal.type == "ice-candidate" && signal.data.ice) {
+						soapbox_global_variables.PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
+					} 
+					else if(signal.type == "stop_speech_transmission") {
+						soapbox_global_variables.PeerConnection.close();
+						soapbox_global_variables.PeerConnection = null;
+						console.log("Speech transmission stopped");
+					}
+					return onReceiveMessage(message);
+				}
+			);
+			console.log("Connected to signaling server");
+			return onConnectSignalingServerSuccess(x);
+		}, 
+		//OnError
+		function(error) {
+			console.log('Failed to connect to signaling server: ' + error.toString());
+			return onConnectSignalingServerError(error);
+		}, 
+		vhost || '/'
+	);
+	return soapbox_global_variables.soapbox;
 }
 
 /********
@@ -93,35 +105,34 @@ function connect_to_signaling_server(server_url, send_queue, receive_queue, user
 	Then start streaming, but the broadcast is controlled by signaling server.
 	Soapbox call this function to start speech, and start logging since then
 ********/
-function start_speech(stream, delay_time) {	
-	window.setTimeout(function(){
-			//Check if speech has started
-			var status = check_speech_transmission_status();
-			if (status) {
-				console.log("Speech has already started");
-				return;
-			}
-			
-			//Create soapbox_global_variables.PeerConnection, set onicecandidate
-			soapbox_global_variables.PeerConnection = new RTCPeerConnection(configuration);
-			console.log('Created local peer connection object PeerConnection');	
-			soapbox_global_variables.PeerConnection.onicecandidate = gotLocalIceCandidate;
-			
-			//Add local stream
-			soapbox_global_variables.localStream = stream;
-			soapbox_global_variables.PeerConnection.addStream(stream);
-			console.log('Added localStream to PeerConnection');
-			
-			//Create offer 
-			soapbox_global_variables.PeerConnection.createOffer(
-				gotLocalDescription, 
-				function onCreateOfferError(error) {
-					console.log('Failed to create offer: ' + error.toString());
-				}, 
-				soapbox_global_variables.sdpConstraints
-			);
-		}, typeof delay_time !== "number" ? 2000 : delay_time
+function start_speech(stream) {	
+	//Check if speech has started
+	var status = check_speech_transmission_status();
+	if (status) {
+		console.log("Speech has already started");		
+		return;
+	}
+	
+	//Create soapbox_global_variables.PeerConnection, set onicecandidate
+	soapbox_global_variables.PeerConnection = new RTCPeerConnection(configuration);
+	console.log('Created local peer connection object PeerConnection');	
+	soapbox_global_variables.PeerConnection.onicecandidate = gotLocalIceCandidate;
+	
+	//Add local stream
+	soapbox_global_variables.localStream = stream;
+	soapbox_global_variables.PeerConnection.addStream(stream);
+	console.log('Added localStream to PeerConnection');
+	
+	//Create offer 
+	soapbox_global_variables.PeerConnection.createOffer(
+		gotLocalDescription, 
+		function onCreateOfferError(error) {
+			console.log('Failed to create offer: ' + error.toString());
+		}, 
+		soapbox_global_variables.sdpConstraints
 	);
+	
+	return soapbox_global_variables.PeerConnection;
 }
 
 /********

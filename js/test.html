@@ -33,10 +33,19 @@
 				localStream = stream;
 				localVideo.src = URL.createObjectURL(stream); 
 				
-				connect_to_signaling_server();
+				connect_to_signaling_server(null, null, null, null, null, null,
+					function() {
+						//You cannot start the speech unless the connection with signaling server is okay
+						start_speech(localStream);
+					},
+					function(error) {
+						console.log("Error");
+					},
+					function(message){
+						console.log("Received:" + JSON.parse(message.body));
+					});
 				
-				//You cannot start the speech unless the connection with signaling server is okay
-				start_speech(localStream);
+				
 			}
 			
 		</script>
