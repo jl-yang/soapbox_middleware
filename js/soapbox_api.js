@@ -46,13 +46,18 @@ var sendWebStompMessage = function(msgObj) {
 function connect_to_signaling_server(server_url, send_queue, receive_queue, user_name, password, vhost, 
 									onConnectSignalingServerSuccess, 
 									onConnectSignalingServerError,
-									onReceiveMessage)
+									onReceiveMessage,
+									enableDebug)
 {	
 	soapbox_global_variables.ws = new SockJS(server_url || 'localhost:15674/stomp');
 	soapbox_global_variables.soapbox = Stomp.over(soapbox_global_variables.ws);
 	soapbox_global_variables.soapbox.heartbeat.outgoing = 0;
 	soapbox_global_variables.soapbox.heartbeat.incoming = 0;
-	soapbox_global_variables.soapbox.debug = null;
+	if (enableDebug !== true)		
+	{
+		console.log("HHH");
+		soapbox_global_variables.soapbox.debug = null;
+	}
 	window.soapbox_global_variables.send_queue = send_queue || "/exchange/logs";
 	window.soapbox_global_variables.receive_queue = receive_queue || "/exchange/logs";
 	

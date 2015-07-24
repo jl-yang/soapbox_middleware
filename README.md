@@ -27,7 +27,8 @@ https://plugin.temasys.com.sg/demo/samples/web/content/peerconnection/trickle-ic
 ##VM server IP
 85.23.168.158
 
-##How to start rabbitmq server in restricted admin access PC
+
+##How to start rabbitmq server in restricted admin access Windows PC
 1. Open CMD in Admin mode
 2. Temporarily set homedrive and homepath env variables by typing: 
     set homedrive=C:
@@ -36,9 +37,6 @@ https://plugin.temasys.com.sg/demo/samples/web/content/peerconnection/trickle-ic
 3. Start rabbitmq server in the background by typing:
 	rabbitmq-server -detached
 
-##How to restart rabbitmq server
-sudo service rabbitmq-server restart
-	
 ##How to install and start rabbitmq server in vm server
 ###Official Guide: https://www.rabbitmq.com/install-rpm.html
 1. Install erlang
@@ -47,14 +45,61 @@ sudo service rabbitmq-server restart
 4. install package
 5. Run: chkconfig rabbitmq-server on
         /sbin/service rabbitmq-server stop/start/etc
-6. Check status of the server: rabbitmqctl status
+		
+Note: Use this command to fire the server in background.
+	sudo rabbitmq-server start -detached 
+		
+6. Check status of the server: sudo rabbitmqctl status
    And by now, it should be successfully installed and started
 
-##Enable Web Stomp Plugin in VM server
-###RabbitMQ and related tools (e.g. rabbitmq-plugins) need the enabled_plugins file to be 
-both readable and writeable
-
 ##How to start web stomp plugin
-1. First find out the rabbitmq.config file in /usr/share/doc/rabbitmq-server-3.5.4/
-2. 
+1. sudo chmod 777 /etc/rabbitmq/enabled_plugins 
+2. sudo rabbitmq-server start -detached
+
+##How to enable others to access than localhost ("guest" user can only connect via localhost)
+https://www.rabbitmq.com/access-control.html
+1. Default location of config file in RPM should be placed in: /etc/rabbitmq/
+2. rabbitmq.config.example file can be retrieved from /usr/share/doc/rabbitmq-server/ or /usr/share/doc/rabbitmq-server-3.5.4/
+3. Uncomment a line so that: [{rabbit, [{loopback_users, []}]}]
+4. Don't forget to delete the comma after that line
+
+##Troubleshooting
+Problem: How to restart rabbitmq server
+sudo service rabbitmq-server restart
+
+Problem: Cookie file /var/lib/rabbitmq/.erlang.cookie must be accessible by owner only
+http://serverfault.com/questions/406712/rabbitmq-erlang-cookie
+chmod 600
+
+Problem: {cannot_read_enabled_plugins_file,"/etc/rabbitmq/enabled_plugins"
+http://grokbase.com/t/rabbitmq/rabbitmq-discuss/12ajc9days/rabbitmq-doesnt-start-after-installation-of-rabbitmq-management
+https://groups.google.com/forum/#!topic/rabbitmq-users/DtwvJ2W634Q
+Change access of the enabled_plugins file to 777
+Noted: This file seems to be umasked by root user everytime you want to enable new plugins. Just chmod each time, and restart the server
+
+Problem: Cannot connect to the test hotspot
+You must be within the panOulu network (not ee network, or others)
+
+
+
+
+# Soapbox
+
+##How to synchronize the speech (Using API connect_to_signaling_server + start_speech(local_stream))
+###Example call
+```javascript
+connect_to_signaling_server(null, null, null, null, null, null,
+	function() {
+		//You cannot start the speech unless the connection with signaling server is okay
+		start_speech(localStream);
+	},
+	function(error) {
+		console.log("Error");
+	},
+	function(message){
+		console.log("Received:" + JSON.parse(message.body));
+	}
+);
+```
+
    

@@ -33,6 +33,9 @@
 				localStream = stream;
 				localVideo.src = URL.createObjectURL(stream); 
 				
+				
+				
+				
 				connect_to_signaling_server(null, null, null, null, null, null,
 					function() {
 						//You cannot start the speech unless the connection with signaling server is okay
@@ -43,7 +46,8 @@
 					},
 					function(message){
 						console.log("Received:" + JSON.parse(message.body));
-					});
+					}
+				);
 				
 				
 			}
