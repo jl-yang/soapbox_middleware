@@ -33,10 +33,24 @@
 				localStream = stream;
 				localVideo.src = URL.createObjectURL(stream); 
 				
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
 				connect_to_signaling_server();
 				
 				//You cannot start the speech unless the connection with signaling server is okay
-				start_speech(localStream);
+				start_speech(localStream, 5000);
+                //stop_speech();
+                //reset_speech(stream);
+                //check_speech_transmission_status();
 			}
 			
 		</script>
