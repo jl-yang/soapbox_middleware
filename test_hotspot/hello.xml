@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initialstate="index">
+  <state id="index">
+    <datamodel>
+      <data>
+        <multipartpage xmlns="http://www.tandembrowsing.org/multipartpage/">
+          <virtualscreen id="index" resource="http://www.tandembrowsing.org"/>
+        </multipartpage>
+      </data>
+    </datamodel>
+  </state>
+</scxml>
