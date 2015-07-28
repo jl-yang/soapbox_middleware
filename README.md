@@ -85,8 +85,9 @@ You must be within the panOulu network (not ee network, or others)
 
 # Soapbox
 
-##How to synchronize the speech (Using API connect_to_signaling_server + start_speech(local_stream))
-###Example call
+##How to synchronize the speech 
+Using API connect_to_signaling_server + start_speech(local_stream)
+Example:
 ```javascript
 connect_to_signaling_server(null, null, null, null, null, null,
 	function() {
