@@ -2,8 +2,9 @@
     <head>
 		
 		<script src="sockjs.js"></script>
-		<script src="stomp.js"></script>
-		
+		<script src="stomp.js"></script>		
+		<script src="adapter.js"></script>
+        <script src="middleware_api.js"></script>
 		<title>RTCPeerConnection</title>
 
 	</head>	
@@ -11,12 +12,13 @@
         <div id="container">
             <video id="localVideo" autoplay muted></video>         			
         </div>
-		<script src="adapter.js"></script>
-        <script src="soapbox_api.js"></script>
 		
 		<script>
 			var localVideo = document.getElementById('localVideo');
 			var localStream;
+			var soapbox;
+			
+			
 			console.log('Requesting local stream');
 			navigator.getUserMedia(
 				{
@@ -33,32 +35,12 @@
 				localStream = stream;
 				localVideo.src = URL.createObjectURL(stream); 
 				
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+                soapbox = new Soapbox({"name": "Jilin"});
+				soapbox.connect(function () {
+					soapbox.start(stream);
+				}, null, null, {"debug": true});
 				
 				
-				
-				connect_to_signaling_server(null, null, null, null, null, null,
-					function() {
-						//You cannot start the speech unless the connection with signaling server is okay
-						start_speech(localStream);
-					},
-					function(error) {
-						console.log("Error");
-					},
-					function(message){
-						console.log("Received:" + JSON.parse(message.body));
-					}
-				);
 				
 				
 			}

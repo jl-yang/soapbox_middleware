@@ -13,7 +13,11 @@ receive_client_routing_key = "logs"
 
 def handleIncomingMessage(ch, method, properties, body):
 	msgObj = json.loads(body)
-	print " [x] Received %r" % (msgObj,)
+	print " [x] Message received.      Type:", \
+		"{0: <30}".format(msgObj.get("type")), \
+		"{0: <15}".format(msgObj.get("sender")), \
+		">>", \
+		"{0: >15}".format(msgObj.get("receiver"))
 	
 	#ch.basic_publish(exchange=send_client_exchange, routing_key=send_client_routing_key, body=json.dumps(msgObj))
 	
