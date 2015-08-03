@@ -1,0 +1,14 @@
+{
+    "name": "Jilin",
+    "gender": "Male",
+    "topic": "Education",
+    "reality_type": "Real",
+    "expected_length": "10"
+}
+
+gender: Male, Female
+
+reality_type: Real, Virtual
+
+expected_length ----- minutes
+

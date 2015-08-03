@@ -8,15 +8,13 @@ var sdpConstraints = {
 	}
 };
 
-var ws = new SockJS('85.23.168.158:15674/stomp');
+//var ws = new SockJS('85.23.168.158:15674/stomp');
+var ws = new SockJS('localhost:15674/stomp');
 var soapbox = Stomp.over(ws);
 soapbox.heartbeat.outgoing = 0;
 soapbox.heartbeat.incoming = 0;
 var send_queue = "/exchange/logs";
 var receive_queue = "/exchange/logs";
-
-var debug_function = soapbox.debug;
-//soapbox.debug = null;
 
 var localStream;
 
@@ -72,7 +70,8 @@ var onReceiveMessages = function(message) {
 
 var onWebStompConnect = function(x) {
 	var id = soapbox.subscribe(receive_queue, onReceiveMessages);
-	console.log("Connected to signaling server");
+	console.log("Connected to signaling server");    
+    start();
 };
 
 var onWebStompError =  function(error) {
@@ -196,7 +195,6 @@ function set_receive_message_handler()
 	
 }
 
-start();
 
 function start() {
     console.log('Requesting local stream');

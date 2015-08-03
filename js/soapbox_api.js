@@ -1,5 +1,12 @@
 'use strict'
 
+(function() {
+    window.Soapbox = function(speech_info) {
+        var signaling_handler, self = this;
+        this.speech_info = speech_info;
+    }
+})();
+
 var soapbox_global_variables = {
 	sdpConstraints: {
 		optional: [],
@@ -55,7 +62,6 @@ function connect_to_signaling_server(server_url, send_queue, receive_queue, user
 	soapbox_global_variables.soapbox.heartbeat.incoming = 0;
 	if (enableDebug !== true)		
 	{
-		console.log("HHH");
 		soapbox_global_variables.soapbox.debug = null;
 	}
 	window.soapbox_global_variables.send_queue = send_queue || "/exchange/logs";
