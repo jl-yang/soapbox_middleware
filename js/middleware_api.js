@@ -1,21 +1,24 @@
 'use strict'
 
 var middleware = (function() {
-    window.Soapbox = function(speech_info) {
+	
+	//Reusable stuff
+    var PeerConnection_Config = {
+		iceServers: [
+		{
+			url: "stun:stun.l.google.com:19302"
+		},
+		{
+			url: "stun:stun.servers.mozilla.com"
+		}]
+	};
+	
+	//API for Soapbox website
+	window.Soapbox = function(speech_info) {
         var self = this;
 		var ws, stomp, send_queue;
 		var PeerConnection, localStream;
-		
-		var PeerConnection_Config = {
-			iceServers: [
-			{
-				url: "stun:stun.l.google.com:19302"
-			},
-			{
-				url: "stun:stun.servers.mozilla.com"
-			}]
-		};
-		
+				
 		var sdpConstraints = {
 			optional: [],
 			mandatory: {
@@ -211,11 +214,16 @@ var middleware = (function() {
 		
     };
 	
+	//API for Hotspot viewer website	
 	window.Hotspot = function () {
 		//add_like
 		//add_dislike
 		//report
-
+		var self = this;
+		var ws, stomp, send_queue;
+		var PeerConnection, remoteStream;
+		
+		
 	};
 	
 })();

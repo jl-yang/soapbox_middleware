@@ -86,21 +86,20 @@ You must be within the panOulu network (not ee network, or others)
 # Soapbox
 
 ##How to synchronize the speech 
-Using API connect_to_signaling_server + start_speech(local_stream)
+Remember to include scripts in the <head>
+```html
+<script src="sockjs.js"></script>
+<script src="stomp.js"></script>		
+<script src="adapter.js"></script>
+<script src="middleware_api.js"></script>
+```
 Example:
 ```javascript
-connect_to_signaling_server(null, null, null, null, null, null,
-	function() {
-		//You cannot start the speech unless the connection with signaling server is okay
-		start_speech(localStream);
-	},
-	function(error) {
-		console.log("Error");
-	},
-	function(message){
-		console.log("Received:" + JSON.parse(message.body));
-	}
-);
+var speech_info = {"name": "Jilin"};
+soapbox = new Soapbox(speech_info);
+soapbox.connect(function () {
+	soapbox.start(local_stream);
+});
 ```
 
    

@@ -1,63 +1,51 @@
 <html>
     <head>
-		<meta name="description" content="Simplest possible examples of HTML, CSS and JavaScript." />
-		<meta name="author" content="//samdutton.com">  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
-		<meta itemprop="name" content="simpl.info: simplest possible examples of HTML, CSS and JavaScript">
-		<meta name="mobile-web-app-capable" content="yes">
-		<meta id="theme-color" name="theme-color" content="#fff">
-
-		<base target="_blank">
 		
 		<script src="../js/sockjs.js"></script>
-		<script src="../js/stomp.js"></script>
-		
+		<script src="../js/stomp.js"></script>		
+		<script src="../js/adapter.js"></script>
+        <script src="../js/middleware_api.js"></script>
 		<title>RTCPeerConnection</title>
 
-		<style>
-			button {
-			  margin: 0 20px 0 0;
-			  width: 85.9px;
-			}
-			button#hangupButton {
-			  margin: 0;
-			}
-			p.borderBelow {
-			  margin: 0 0 1.5em 0;
-			  padding: 0 0 1.5em 0;
-			}
-			video {
-			  height: 225px;
-			  margin: 0 0 20px 0;
-			  vertical-align: top;
-			  width: calc(50% - 13px);
-			}
-			video#localVideo {
-			  margin: 0 20px 20px 0;
-			}
-			@media screen and (max-width: 400px) {
-			  button {
-				width: 83px;
-			  }
-			  button {
-				margin: 0 11px 10px 0;
-			  }
-			  video {
-				height: 90px;
-				margin: 0 0 10px 0;
-				width: calc(50% - 7px);
-			  }
-			  video#localVideo {
-				margin: 0 10px 20px 0;
-			  }
-			}
-		</style>		
 	</head>	
     <body>
         <div id="container">
-            <video id="localVideo" autoplay muted></video>
-            <video id="remoteVideo" autoplay></video>            			
+            <video id="localVideo" autoplay muted></video>         			
         </div>
-		<script src="../js/adapter.js"></script>
-        <script src="main.js"></script>
+		
+		<script>
+			var localVideo = document.getElementById('localVideo');
+			var localStream;
+			var soapbox;
+			
+			
+			console.log('Requesting local stream');
+			navigator.getUserMedia(
+				{
+					video: true,
+					audio: true
+				}, 
+				gotStream, 
+				function (error) {
+					console.log('navigator.getUserMedia error: ', error);
+				}
+			);
+			function gotStream(stream) {   
+				console.log('Received local stream');
+				localStream = stream;
+				localVideo.src = URL.createObjectURL(stream); 
+				
+                soapbox = new Soapbox({"name": "Jilin"});
+				soapbox.connect(function () {
+					soapbox.start(stream);
+				}, null, null, {"debug": true});
+				
+				
+				
+				
+			}
+			
+		</script>
+		
     </body>
 </html>
