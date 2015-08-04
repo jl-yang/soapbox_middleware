@@ -86,7 +86,7 @@ You must be within the panOulu network (not ee network, or others)
 # Soapbox
 
 ##How to synchronize the speech 
-Remember to include scripts in the \<head\>
+Remember to include scripts in \<head\> tag
 ```html
 <script src="sockjs.js"></script>
 <script src="stomp.js"></script>		
@@ -95,8 +95,11 @@ Remember to include scripts in the \<head\>
 ```
 Example:
 ```javascript
+//Speech info object, which will be sent to middleware once the connection is on
 var speech_info = {"name": "Jilin"};
-soapbox = new Soapbox(speech_info);
+//API object
+var soapbox = new Soapbox(speech_info);
+//Connect to the middleware(signaling server). Three params: onConnectCallback, onErrorCallback, onReceiveMessageCallback
 soapbox.connect(function () {
 	soapbox.start(local_stream);
 });
