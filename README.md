@@ -86,7 +86,7 @@ You must be within the panOulu network (not ee network, or others)
 # Soapbox
 
 ##How to synchronize the speech 
-Remember to include scripts in the <head>
+Remember to include scripts in the \<head\>
 ```html
 <script src="sockjs.js"></script>
 <script src="stomp.js"></script>		
