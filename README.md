@@ -99,10 +99,42 @@ Example:
 var speech_info = {"name": "Jilin"};
 //API object
 var soapbox = new Soapbox(speech_info);
-//Connect to the middleware(signaling server). Three params: onConnectCallback, onErrorCallback, onReceiveMessageCallback
+//Connect to the middleware(signaling server)
+//Four params: onConnect, onError, onReceiveMessage, ConfigParams
 soapbox.connect(function () {
 	soapbox.start(local_stream);
 });
 ```
 
-   
+# Hotspot
+
+##How to receive the speech
+Example
+```javascript
+//API object
+var hotspot = new Hotspot();
+//Setup the video object for displaying remote stream
+hotspot.setup(remoteVideo);
+//Connect to the middleware(signaling server)
+//Four params: onConnect, onError, onReceiveMessage, ConfigParams
+hotspot.connect(function () {
+	watchButton.addEventListener("click", function() {
+		//Start waiting for speech transmission
+		var ret = hotspot.wait();
+		
+		if (ret === true) {
+			watchButton.disabled = true;
+			stopButton.disabled = false;
+		}					
+	});	
+	stopButton.addEventListener("click", function() {
+		//Stop receiving speech, this will also notice soapbox and middleware
+		var ret = hotspot.stop();
+		
+		if (ret === true) {
+			stopButton.disabled = true;
+			watchButton.disabled = false;
+		}					
+	});
+});
+```

@@ -1,0 +1,11 @@
+ {
+	"sender": "hotspot",
+	"receiver": "middleware",
+	"timestamp": "2013-08-28T11:51:47.746Z",
+	"type": "like",
+	"data": {
+		"hotspot": "test-hotspot" //should be some unique identifier
+	}
+}
+
+type: like, dislike, report

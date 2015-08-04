@@ -3,4 +3,4 @@ Exchange: soapbox
 	"/exchange/soapbox"
 	"/exchange/soapbox"
 username: "soapbox"
-password: "7rD7zL8RtckRzEXD"
+password: contact_author

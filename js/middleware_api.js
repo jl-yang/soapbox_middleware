@@ -39,14 +39,14 @@ var middleware = (function() {
 		
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
-			sendMessageToMiddleware("relay-server", "stop_speech_transmission", null);
+			sendMessageToMiddleware("hotspot", "stop_speech_transmission", null);
 		};
 		
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
 			var configuration = configuration || {};
 			var server_url = configuration.server_url || 'localhost:15674/stomp';
-			send_queue = configuration.send_queue || "/exchange/logs";
+			self.send_queue = configuration.send_queue || "/exchange/logs";
 			var receive_queue = configuration.receive_queue || "/exchange/logs";
 			var user_name = configuration.user_name || 'guest';
 			var password = configuration.password || 'guest';
@@ -79,9 +79,7 @@ var middleware = (function() {
 								PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
 							} 
 							else if(signal.type == "stop_speech_transmission") {
-								PeerConnection.close();
-								PeerConnection = null;
-								console.log("Speech transmission stopped");
+								stopSpeechTransmission(false);
 							}
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});
@@ -93,8 +91,6 @@ var middleware = (function() {
 				console.log('Failed to connect to signaling server: ' + error.toString());
 				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
 			}, vhost);
-			
-			
 			
 			return stomp;
 		}
@@ -125,7 +121,7 @@ var middleware = (function() {
 				PeerConnection.setLocalDescription(
 					description,
 					function () {			
-						sendMessageToMiddleware("relay-server", "offer", {'sdp': description});
+						sendMessageToMiddleware("hotspot", "offer", {'sdp': description});
 						console.log('Offer sdp generated: \n');
 						//console.log(description.sdp);
 					},
@@ -137,7 +133,7 @@ var middleware = (function() {
 			
 			function _gotLocalIceCandidate(event) {
 				if (event.candidate) {
-					sendMessageToMiddleware("relay-server", 'ice-candidate', {'ice': event.candidate});
+					sendMessageToMiddleware("hotspot", 'ice-candidate', {'ice': event.candidate});
 					console.log('Local ICE candidate gathered');
 					//event.candidate.candidate;
 				}
@@ -162,20 +158,25 @@ var middleware = (function() {
 				'type': type,
 				'data': payload
 			};
-			stomp.send(send_queue, {}, JSON.stringify(message_object));
+			stomp.send(self.send_queue, {}, JSON.stringify(message_object));
 		}
 		
-		function stopSpeechTransmission() {
-			if(PeerConnection && PeerConnection.signalingState != "closed") {
-				PeerConnection.close();
-				PeerConnection = null;
-			
-				sendMessageToMiddleware("relay-server", "stop_speech_transmission", null);
-				return true;
+		function stopSpeechTransmission(initiative) {
+			if (typeof initiative === "undefined" || initiative === true) {
+				if(PeerConnection && PeerConnection.signalingState != "closed") {
+					PeerConnection.close();
+					PeerConnection = null;			
+					sendMessageToMiddleware("hotspot", "stop_speech_transmission", null);				
+					console.log("Speech transmission stopped");
+					return true;
+				} else {
+					console.log("Stop speech failure");
+					return false;
+				}		
 			} else {
-				console.log("Stop speech failure");
-				return false;
-			}				
+				console.log("Hotspot has stopped receiving speech");
+				return true;
+			}			
 		}
 		
 		function checkSpeechTransmissionStatus() {
@@ -207,7 +208,7 @@ var middleware = (function() {
 				return false;
 			} else {
 				self.speech_info = speech_info;
-				sendMessageToMiddleware("relay-server", "meta-data", speech_info);
+				sendMessageToMiddleware("hotspot", "meta-data", speech_info);
 			} 
 			
 		}
@@ -216,14 +217,194 @@ var middleware = (function() {
 	
 	//API for Hotspot viewer website	
 	window.Hotspot = function () {
-		//add_like
-		//add_dislike
-		//report
 		var self = this;
 		var ws, stomp, send_queue;
-		var PeerConnection, remoteStream;
+		var PeerConnection, remoteVideo, remoteStream;
+		
+		this.setup = setupVideoDisplayObject;
+		this.connect = connectMiddleware;
+		this.wait = waitForSpeechTransmission;
+		this.stop = stopSpeechTransmission;
+		this.check = checkSpeechTransmissionStatus;
+		this.send = sendMessageToMiddleware;
+		this.like = addLike;
+		this.dislike = addDislike;
+		this.report = reportInappropriateContent;
+		
+		//Try to tell signaling server that it is about to close
+		window.onbeforeunload = function(event) {
+			sendMessageToMiddleware("soapbox", "stop_speech_transmission", null);
+		};
+		
+		function setupVideoDisplayObject(remoteVideoObject) {
+			self.remoteVideo = remoteVideoObject;
+		}
+		
+		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
+			//Parsing config params
+			var configuration = configuration || {};
+			var server_url = configuration.server_url || 'localhost:15674/stomp';
+			self.send_queue = configuration.send_queue || "/exchange/logs";
+			var receive_queue = configuration.receive_queue || "/exchange/logs";
+			var user_name = configuration.user_name || 'guest';
+			var password = configuration.password || 'guest';
+			var vhost = configuration.vhost || '/';
+			var debug = configuration.debug || false;
+			
+			//Stomp initialization
+			self.ws = new SockJS(server_url);
+			self.stomp = Stomp.over(self.ws);
+			self.stomp.heartbeat.outgoing = 0;
+			self.stomp.heartbeat.incoming = 0;
+			if(!debug)
+				self.stomp.debug = null;
+			
+			self.stomp.connect(user_name, password, 
+				function(x) {
+					var id = self.stomp.subscribe(receive_queue, 
+						//Handling incoming messages
+						function (message) {
+							var signal = JSON.parse(message.body);	
+							if(signal.receiver !== 'hotspot')
+							{	
+								return;
+							}						
+							if (signal.type == "offer" && signal.data.sdp) {				
+								waitForSpeechTransmission();						
+								self.PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp), function () {
+									self.PeerConnection.createAnswer(
+										_gotLocalDescription, 
+										function (error) {
+											console.log('Failed to create answer: ' + error.toString());
+										});
+								});
+							} 
+							else if(signal.type == "ice-candidate" && signal.data.ice) {
+								self.PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
+							}
+							else if(signal.type == "stop_speech_transmission") {
+								stopSpeechTransmission(false);
+							}
+							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
+					});
+					console.log("Connected to signaling server");		
+					return typeof onConnectCallback !== "function" ? null : onConnectCallback(x);
+			}, function(error) {
+				console.log('Failed to connect to signaling server: ' + error.toString());
+				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
+			}, vhost);
+			
+			return self.stomp;
+		}
+		
+		function waitForSpeechTransmission() {
+			if(!self.PeerConnection) {
+				self.PeerConnection = new RTCPeerConnection(PeerConnection_Config);
+				console.log('Created local peer connection object PeerConnection');
+				self.PeerConnection.onicecandidate = _gotLocalIceCandidate;
+				self.PeerConnection.onaddstream = _gotRemoteStream;
+				return true;
+			}
+			else {
+				console.log("Transmission has already started.");
+				return false;
+			}
+		}
+		
+		function stopSpeechTransmission(initiative) {
+			if (typeof initiative === "undefined" || initiative === true) {
+				if(self.PeerConnection && self.PeerConnection.signalingState != "closed") {
+					self.PeerConnection.close();
+					self.PeerConnection = null;			
+					sendMessageToMiddleware("soapbox", "stop_speech_transmission", null);				
+					console.log("Speech transmission stopped");
+					return true;
+				} else {
+					console.log("Stop speech failure");
+					return false;
+				}	
+			}
+			else {
+				if(self.PeerConnection) {
+					self.PeerConnection.close();
+					self.PeerConnection = null;
+					console.log("Speech transmission stopped");
+					return true;
+				}
+			}
+				
+		}
+		
+		function checkSpeechTransmissionStatus() {
+			if(!self.PeerConnection || self.PeerConnection.iceConnectionState == "new"
+				|| self.PeerConnection.iceConnectionState == "checking")
+				return false;
+			else if(self.PeerConnection.iceConnectionState == "closed") {
+				self.PeerConnection = null;
+				return false;
+			}		
+			else
+				return true;
+		}
+		
+		function sendMessageToMiddleware(receiver, type, payload) {
+			var message_object = {
+				'sender': 'hotspot',
+				'receiver': receiver,
+				'timestamp': new Date().toISOString(),
+				'type': type,
+				'data': payload
+			};
+			self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+		}
+		
+		function addLike() {
+			sendMessageToMiddleware("middleware", "like", {"hotspot": "test-hotspot"});
+		}
+		
+		function addDislike() {
+			sendMessageToMiddleware("middleware", "dislike", {"hotspot": "test-hotspot"});
+		}
+		
+		function reportInappropriateContent() {
+			sendMessageToMiddleware("middleware", "report", {"hotspot": "test-hotspot"});
+		}
 		
 		
+		
+		
+		
+		
+		
+		
+		
+		
+		//Local functions
+		function _gotLocalDescription(description) {
+			self.PeerConnection.setLocalDescription(
+				description,	
+				function () {
+					sendMessageToMiddleware('soapbox',	'answer', {'sdp': description});
+					console.log('Answer sdp generated');
+				}, 
+				function () { 
+					console.log("Set local description error");
+				}
+			);  
+		}
+		
+		function _gotLocalIceCandidate(event) {
+			if (event.candidate) {
+				sendMessageToMiddleware("soapbox", 'ice-candidate', {'ice': event.candidate});
+				console.log('Local ICE candidate gathered');
+			}
+		}
+		
+		function _gotRemoteStream(event) {			
+			console.log('Received remote stream');
+			self.remoteStream = event.stream;
+			self.remoteVideo.src = URL.createObjectURL(event.stream);
+		}
 	};
 	
 })();

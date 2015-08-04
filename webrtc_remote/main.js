@@ -51,7 +51,7 @@ var sendWebStompMessage = function(msgObj) {
 var onReceiveMessages = function(message) {
 	var signal = JSON.parse(message.body);
 	
-	if(signal.receiver !== 'relay-server')
+	if(signal.receiver !== 'hotspot')
 	{	
 		return;
 	}
@@ -118,7 +118,7 @@ function send_message(receiver, type, payload)
 {
 	sendWebStompMessage(
 		{
-			'sender': 'relay-server', //by default
+			'sender': 'hotspot', //by default
 			'receiver': receiver,
 			'timestamp': new Date().toISOString(),
 			'type': type,

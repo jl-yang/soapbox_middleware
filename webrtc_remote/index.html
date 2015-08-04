@@ -2,7 +2,9 @@
 	<head>
 		<title>RTCPeerConnection remote client for receiving Video stream</title>
 		<script src="../js/sockjs.js"></script>
-		<script src="../js/stomp.js"></script>
+		<script src="../js/stomp.js"></script>		
+		<script src="../js/adapter.js"></script>
+		<script src="../js/middleware_api.js"></script>
 	</head>
 	<body>
 		<div id="container">
@@ -14,8 +16,38 @@
 			<button id="stopButton">Stop waiting</button>
 		</div>
 		
-		<script src="../js/adapter.js"></script>
-		<script src="main.js"></script>
+		<script>
+			var remoteVideo = document.getElementById('remoteVideo');
+			var watchButton = document.getElementById('watchButton');
+			var stopButton = document.getElementById('stopButton');				
+			stopButton.disabled = true;
+			
+			//Example usage
+			
+			var hotspot = new Hotspot();
+			hotspot.setup(remoteVideo);
+			hotspot.connect(function () {
+				watchButton.addEventListener("click", function() {
+					var ret = hotspot.wait();
+					
+					if (ret === true) {
+						watchButton.disabled = true;
+						stopButton.disabled = false;
+					}					
+				});	
+				stopButton.addEventListener("click", function() {
+					var ret = hotspot.stop();
+					
+					if (ret === true) {
+						stopButton.disabled = true;
+						watchButton.disabled = false;
+					}					
+				});
+			}, null, null, {"debug": true});
+			
+			
+			
+		</script>
 	</body>
 	
 </html>
