@@ -14,10 +14,10 @@ var middleware = (function() {
 	};
 	
 	//API for Soapbox website
-	window.Soapbox = function(speech_info) {
+	window.Soapbox = function() {
         var self = this;
 		var ws, stomp, send_queue;
-		var PeerConnection, localStream;
+		var PeerConnection, localStream, speech_info;
 				
 		var sdpConstraints = {
 			optional: [],
@@ -25,11 +25,10 @@ var middleware = (function() {
 				OfferToReceiveAudio: false,
 				OfferToReceiveVideo: false
 			}
-		};
-		
-        this.speech_info = speech_info || {};
+		};		
 		
 		this.connect = connectMiddleware;
+		this.submit = submitSpeechInfoBeforeSpeech;
 		this.start = startSpeechTransmission;
 		this.stop = stopSpeechTransmission;
 		this.check = checkSpeechTransmissionStatus;
@@ -41,6 +40,17 @@ var middleware = (function() {
 		window.onbeforeunload = function(event) {
 			sendMessageToMiddleware("hotspot", "stop_speech_transmission", null);
 		};
+		
+		function submitSpeechInfoBeforeSpeech(speech_info) {
+			if (typeof speech_info !== "object") {
+				console.log("Wrong speech info format. Submit failure!");
+				self.speech_info = {};
+				return false;
+			} else {
+				self.speech_info = speech_info;
+				sendMessageToMiddleware("hotspot", "meta-data", speech_info);
+			}
+		}
 		
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
@@ -55,15 +65,15 @@ var middleware = (function() {
 			
 			//Stomp initialization
 			ws = new SockJS(server_url);
-			stomp = Stomp.over(ws);
-			stomp.heartbeat.outgoing = 0;
-			stomp.heartbeat.incoming = 0;
+			self.stomp = Stomp.over(ws);
+			self.stomp.heartbeat.outgoing = 0;
+			self.stomp.heartbeat.incoming = 0;
 			if(!debug)
-				stomp.debug = null;
+				self.stomp.debug = null;
 			
-			stomp.connect(user_name, password, 
+			self.stomp.connect(user_name, password, 
 				function(x) {
-					var id = stomp.subscribe(receive_queue, 
+					var id = self.stomp.subscribe(receive_queue, 
 						//Handling incoming messages
 						function(message) {
 							var signal = JSON.parse(message.body);							
@@ -83,16 +93,13 @@ var middleware = (function() {
 							}
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});
-					console.log("Connected to signaling server");
-					//Send meta data of the speech, if any
-					updateSpeechMetaData(speech_info);					
+					console.log("Connected to signaling server");		
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(x);
 			}, function(error) {
 				console.log('Failed to connect to signaling server: ' + error.toString());
 				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
 			}, vhost);
 			
-			return stomp;
 		}
 		
 		function startSpeechTransmission(stream) {
@@ -158,7 +165,12 @@ var middleware = (function() {
 				'type': type,
 				'data': payload
 			};
-			stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+			if(self.stomp.connected !== true) {
+				console.log("Connection to middleware is not on yet. Send failure.");
+				return;
+			} else {
+				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+			}
 		}
 		
 		function stopSpeechTransmission(initiative) {
@@ -209,8 +221,7 @@ var middleware = (function() {
 			} else {
 				self.speech_info = speech_info;
 				sendMessageToMiddleware("hotspot", "meta-data", speech_info);
-			} 
-			
+			} 			
 		}
 		
     };
@@ -294,7 +305,6 @@ var middleware = (function() {
 				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
 			}, vhost);
 			
-			return self.stomp;
 		}
 		
 		function waitForSpeechTransmission() {
@@ -355,7 +365,12 @@ var middleware = (function() {
 				'type': type,
 				'data': payload
 			};
-			self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+			if(self.stomp.connected !== true) {
+				console.log("Connection to middleware is not on yet. Send failure.");
+				return;
+			} else {
+				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+			}
 		}
 		
 		function addLike() {

@@ -17,7 +17,7 @@
 			var localVideo = document.getElementById('localVideo');
 			var localStream;
 			var soapbox;
-			
+			var stomp;
 			
 			console.log('Requesting local stream');
 			navigator.getUserMedia(
@@ -35,8 +35,10 @@
 				localStream = stream;
 				localVideo.src = URL.createObjectURL(stream); 
 				
-                soapbox = new Soapbox({"name": "Jilin"});
-				soapbox.connect(function () {
+                soapbox = new Soapbox();
+				stomp = soapbox.connect(function () {
+					soapbox.submit({"name": "Jilin"});
+				
 					soapbox.start(stream);
 				}, null, null, {"debug": true});
 				

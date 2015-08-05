@@ -98,10 +98,14 @@ Example:
 //Speech info object, which will be sent to middleware once the connection is on
 var speech_info = {"name": "Jilin"};
 //API object
-var soapbox = new Soapbox(speech_info);
+var soapbox = new Soapbox();
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 soapbox.connect(function () {
+	//Submit the speech info
+	soapbox.submit(speech_info);
+	
+	//Start speech transmission
 	soapbox.start(local_stream);
 });
 ```
