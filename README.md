@@ -107,7 +107,7 @@ soapbox.connect(function () {
 	
 	//Start speech transmission
 	soapbox.start(local_stream);
-});
+}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
 ```
 
 # Hotspot
@@ -140,5 +140,5 @@ hotspot.connect(function () {
 			watchButton.disabled = false;
 		}					
 	});
-});
+}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
 ```

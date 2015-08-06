@@ -327,7 +327,7 @@ var middleware = (function() {
 					self.PeerConnection.close();
 					self.PeerConnection = null;			
 					sendMessageToMiddleware("soapbox", "stop_speech_transmission", null);				
-					console.log("Speech transmission stopped");
+					console.log("Speech transmission stopped actively");
 					return true;
 				} else {
 					console.log("Stop speech failure");
@@ -338,7 +338,7 @@ var middleware = (function() {
 				if(self.PeerConnection) {
 					self.PeerConnection.close();
 					self.PeerConnection = null;
-					console.log("Speech transmission stopped");
+					console.log("Speech transmission stopped passively");
 					return true;
 				}
 			}
