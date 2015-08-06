@@ -36,9 +36,13 @@ var middleware = (function() {
 		this.send = sendMessageToMiddleware;
 		this.update = updateSpeechMetaData;
 		
+		//Record API
+		this.record = recordSpeechInBackground;
+		
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
-			sendMessageToMiddleware("hotspot", "stop_speech_transmission", null);
+			if (checkSpeechTransmissionStatus() === true)
+				sendMessageToMiddleware("hotspot", "stop_speech_transmission", null);
 		};
 		
 		function submitSpeechInfoBeforeSpeech(speech_info) {
@@ -224,6 +228,16 @@ var middleware = (function() {
 			} 			
 		}
 		
+		function recordSpeechInBackground(video_element) {
+			var recorder = MultiStreamRecorder(self.localStream);
+			recorder.video = video_element; //to get maximum accuracy
+			recorder.audioChannels = 1;
+			recorder.ondataavailable = function (blobs) {
+				console.log("Blobs received.");
+			};
+			recorder.start(3 * 1000);
+		}
+		
     };
 	
 	//API for Hotspot viewer website	
@@ -244,7 +258,8 @@ var middleware = (function() {
 		
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
-			sendMessageToMiddleware("soapbox", "stop_speech_transmission", null);
+			if (checkSpeechTransmissionStatus() === true)
+				sendMessageToMiddleware("soapbox", "stop_speech_transmission", null);
 		};
 		
 		function setupVideoDisplayObject(remoteVideoObject) {
@@ -393,7 +408,6 @@ var middleware = (function() {
 		
 		
 		
-		
 		//Local functions
 		function _gotLocalDescription(description) {
 			self.PeerConnection.setLocalDescription(
@@ -420,6 +434,12 @@ var middleware = (function() {
 			self.remoteStream = event.stream;
 			self.remoteVideo.src = URL.createObjectURL(event.stream);
 		}
+	};
+	
+	
+	//API for Audience who will comment on current speech 
+	window.Audience = function () {
+		//Unimplemented
 	};
 	
 })();

@@ -4,6 +4,7 @@
 		<script src="../js/sockjs.js"></script>
 		<script src="../js/stomp.js"></script>		
 		<script src="../js/adapter.js"></script>
+		<script src="../js/MediaStreamRecorder.js"></script>
         <script src="../js/middleware_api.js"></script>
 		<title>RTCPeerConnection</title>
 
@@ -40,7 +41,10 @@
 					soapbox.submit({"name": "Jilin"});
 				
 					soapbox.start(stream);
-				}, null, null, {"server_url": "10.20.215.140:15674/stomp", "debug": true});
+					
+					soapbox.record(localVideo);
+					
+				}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
 				
 				
 				
