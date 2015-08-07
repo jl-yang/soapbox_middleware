@@ -16,6 +16,7 @@
 		
 		<script>
 			var localVideo = document.getElementById('localVideo');
+			var self = this;
 			var localStream;
 			var soapbox;
 			var stomp;
@@ -34,17 +35,15 @@
 			function gotStream(stream) {   
 				console.log('Received local stream');
 				localStream = stream;
-				localVideo.src = URL.createObjectURL(stream); 
-				
+				self.localVideo.src = URL.createObjectURL(stream); 
                 soapbox = new Soapbox();
 				stomp = soapbox.connect(function () {
 					soapbox.submit({"name": "Jilin"});
-				
 					soapbox.start(stream);
 					
-					soapbox.record(localVideo);
+					//soapbox.record(self.localVideo, localStream);
 					
-				}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+				}, null, null, {"server_url": "10.20.43.6:15674/stomp"});
 				
 				
 				

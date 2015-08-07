@@ -228,10 +228,10 @@ var middleware = (function() {
 			} 			
 		}
 		
-		function recordSpeechInBackground(video_element) {
-			var recorder = MultiStreamRecorder(self.localStream);
-			recorder.video = video_element; //to get maximum accuracy
-			recorder.audioChannels = 1;
+		function recordSpeechInBackground(video_element, stream_element) {
+			var recorder = MultiStreamRecorder(stream_element);
+			console.log(recorder);
+			//recorder.video = video_element; //to get maximum accuracy
 			recorder.ondataavailable = function (blobs) {
 				console.log("Blobs received.");
 			};
