@@ -35,6 +35,9 @@ var middleware = (function() {
 		this.reset = resetSpeechTransmission;
 		this.send = sendMessageToMiddleware;
 		this.update = updateSpeechMetaData;
+		this.onreceivelikes = onReceiveLikesUpdate;
+		this.onreceivedislikes = onReceiveDislikesUpdate;
+		this.onreceivereports = onReceiveReportsUpdate;
 		
 		//Record API
 		this.record = recordSpeechInBackground;
@@ -44,6 +47,18 @@ var middleware = (function() {
 			if (checkSpeechTransmissionStatus() === true)
 				sendMessageToMiddleware("hotspot", "stop_speech_transmission", null);
 		};
+		
+		function onReceiveLikesUpdate(likes) {
+			//None
+		}
+		
+		function onReceiveDislikesUpdate(dislikes) {
+			//None
+		}
+		
+		function onReceiveReportsUpdate(reports) {
+			//None
+		}
 		
 		function submitSpeechInfoBeforeSpeech(speech_info) {
 			if (typeof speech_info !== "object") {
@@ -80,11 +95,11 @@ var middleware = (function() {
 					var id = self.stomp.subscribe(receive_queue, 
 						//Handling incoming messages
 						function(message) {
-							var signal = JSON.parse(message.body);							
-							if(signal.receiver !== 'soapbox')
+							var signal = JSON.parse(message.body);						
+							if(signal.receiver !== 'soapbox' && signal.receiver !== 'all')
 							{	
 								return signal;
-							}									
+							}							
 							//Assume soapbox will fire the offer
 							if (signal.type == "answer" && signal.data.sdp) {				
 								PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp));
@@ -94,6 +109,16 @@ var middleware = (function() {
 							} 
 							else if(signal.type == "stop_speech_transmission") {
 								stopSpeechTransmission(false);
+							}
+							else if(signal.type == "like") {
+								console.log("Now a like");
+								onReceiveLikesUpdate(signal.data.likes);
+							}
+							else if(signal.type == "dislike") {
+								onReceiveDislikesUpdate(signal.data.dislikes);
+							}
+							else if(signal.type == "report") {
+								onReceiveReportsUpdate(signal.data.reports);
 							}
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});
@@ -255,6 +280,21 @@ var middleware = (function() {
 		this.like = addLike;
 		this.dislike = addDislike;
 		this.report = reportInappropriateContent;
+		this.onreceivelikes = onReceiveLikesUpdate;
+		this.onreceivedislikes = onReceiveDislikesUpdate;
+		this.onreceivereports = onReceiveReportsUpdate;
+		
+		function onReceiveLikesUpdate(likes) {
+			//None
+		}
+		
+		function onReceiveDislikesUpdate(dislikes) {
+			//None
+		}
+		
+		function onReceiveReportsUpdate(reports) {
+			//None
+		}
 		
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
@@ -290,8 +330,8 @@ var middleware = (function() {
 					var id = self.stomp.subscribe(receive_queue, 
 						//Handling incoming messages
 						function (message) {
-							var signal = JSON.parse(message.body);	
-							if(signal.receiver !== 'hotspot')
+							var signal = JSON.parse(message.body);
+							if(signal.receiver !== 'hotspot' && signal.receiver !== 'all')
 							{	
 								return;
 							}						
@@ -311,6 +351,16 @@ var middleware = (function() {
 							else if(signal.type == "stop_speech_transmission") {
 								stopSpeechTransmission(false);
 							}
+							else if(signal.type == "like") {
+								onReceiveLikesUpdate(signal.data.likes);
+							}
+							else if(signal.type == "dislike") {
+								onReceiveDislikesUpdate(signal.data.dislikes);
+							}
+							else if(signal.type == "report") {
+								onReceiveReportsUpdate(signal.data.reports);
+							}
+							
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});
 					console.log("Connected to signaling server");		
