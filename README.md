@@ -1,5 +1,68 @@
 # soapbox_middleware
 
+# Soapbox
+
+##How to synchronize the speech 
+Remember to include scripts in \<head\> tag
+```html
+<script src="sockjs.js"></script>
+<script src="stomp.js"></script>		
+<script src="adapter.js"></script>
+<script src="middleware_api.js"></script>
+```
+Example:
+```javascript
+//Speech info object, which will be sent to middleware once the connection is on
+var speech_info = {"name": "Jilin"};
+//API object
+var soapbox = new Soapbox();
+//Connect to the middleware(signaling server)
+//Four params: onConnect, onError, onReceiveMessage, ConfigParams
+soapbox.connect(function () {
+	//Submit the speech info
+	soapbox.submit(speech_info);
+	
+	//Start speech transmission
+	soapbox.start(local_stream);
+}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+```
+
+# Hotspot
+
+##How to receive the speech
+Example
+```javascript
+//API object
+var hotspot = new Hotspot();
+//Setup the video object for displaying remote stream
+hotspot.setup(remoteVideo);
+//Connect to the middleware(signaling server)
+//Four params: onConnect, onError, onReceiveMessage, ConfigParams
+hotspot.connect(function () {
+	watchButton.addEventListener("click", function() {
+		//Start waiting for speech transmission
+		var ret = hotspot.wait();
+		
+		if (ret === true) {
+			watchButton.disabled = true;
+			stopButton.disabled = false;
+		}					
+	});	
+	stopButton.addEventListener("click", function() {
+		//Stop receiving speech, this will also notice soapbox and middleware
+		var ret = hotspot.stop();
+		
+		if (ret === true) {
+			stopButton.disabled = true;
+			watchButton.disabled = false;
+		}					
+	});
+}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+```
+
+
+
+
 ##List of STUN server (https://gist.github.com/zziuni/3741933)
 stun.l.google.com:19302
 stun1.l.google.com:19302
@@ -80,65 +143,14 @@ Noted: This file seems to be umasked by root user everytime you want to enable n
 Problem: Cannot connect to the test hotspot
 You must be within the panOulu network (not ee network, or others)
 
+Problem: Video transmission starts and freezes at the first frame using WebRTC.
+Add "autoplay" attribute to the video tag for displaying the video 
 
 
+#To do
+1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.
+2. Add comments
+3. Save video and audio locally in soapbox and background upload it to the middleware server
+4. Simple browsing website for archiving the history speech and also the current speech
+5. Move everything to virtual server with public IP and ports.
 
-# Soapbox
-
-##How to synchronize the speech 
-Remember to include scripts in \<head\> tag
-```html
-<script src="sockjs.js"></script>
-<script src="stomp.js"></script>		
-<script src="adapter.js"></script>
-<script src="middleware_api.js"></script>
-```
-Example:
-```javascript
-//Speech info object, which will be sent to middleware once the connection is on
-var speech_info = {"name": "Jilin"};
-//API object
-var soapbox = new Soapbox();
-//Connect to the middleware(signaling server)
-//Four params: onConnect, onError, onReceiveMessage, ConfigParams
-soapbox.connect(function () {
-	//Submit the speech info
-	soapbox.submit(speech_info);
-	
-	//Start speech transmission
-	soapbox.start(local_stream);
-}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
-```
-
-# Hotspot
-
-##How to receive the speech
-Example
-```javascript
-//API object
-var hotspot = new Hotspot();
-//Setup the video object for displaying remote stream
-hotspot.setup(remoteVideo);
-//Connect to the middleware(signaling server)
-//Four params: onConnect, onError, onReceiveMessage, ConfigParams
-hotspot.connect(function () {
-	watchButton.addEventListener("click", function() {
-		//Start waiting for speech transmission
-		var ret = hotspot.wait();
-		
-		if (ret === true) {
-			watchButton.disabled = true;
-			stopButton.disabled = false;
-		}					
-	});	
-	stopButton.addEventListener("click", function() {
-		//Stop receiving speech, this will also notice soapbox and middleware
-		var ret = hotspot.stop();
-		
-		if (ret === true) {
-			stopButton.disabled = true;
-			watchButton.disabled = false;
-		}					
-	});
-}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
-```
