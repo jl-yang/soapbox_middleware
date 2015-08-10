@@ -1,0 +1,2 @@
+1. firefox onbeforeunload not working?
+2. mute sounds from any other apps including ad channel?
