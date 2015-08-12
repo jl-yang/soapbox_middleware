@@ -1,6 +1,5 @@
-tomcat webapps
 
-usr share 
+/var/lib/tomcat5/webapps/UBIChannel/index.html
 
 UBIChannel.html
 mute unmuted commentted
