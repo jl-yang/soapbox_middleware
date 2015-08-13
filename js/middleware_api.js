@@ -74,13 +74,13 @@ var middleware = (function() {
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
 			var configuration = configuration || {};
-			var server_url = configuration.server_url || 'localhost:15674/stomp';
-			self.send_queue = configuration.send_queue || "/exchange/logs";
-			var receive_queue = configuration.receive_queue || "/exchange/logs";
-			var user_name = configuration.user_name || 'guest';
-			var password = configuration.password || 'guest';
+			var server_url = configuration.server_url || 'bunny.ubioulu.fi:15674/stomp';
+			self.send_queue = configuration.send_queue || "/exchange/soapbox/middleware";
+			var receive_queue = configuration.receive_queue || "/exchange/soapbox/soapbox";
+			var user_name = configuration.user_name || 'soapbox';
+			var password = configuration.password || '7rD7zL8RtckRzEXD';
 			var vhost = configuration.vhost || '/';
-			var debug = configuration.debug || false;
+			var debug = configuration.debug || true;
 			
 			//Stomp initialization
 			ws = new SockJS(server_url);
@@ -309,13 +309,13 @@ var middleware = (function() {
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
 			var configuration = configuration || {};
-			var server_url = configuration.server_url || 'localhost:15674/stomp';
-			self.send_queue = configuration.send_queue || "/exchange/logs";
-			var receive_queue = configuration.receive_queue || "/exchange/logs";
-			var user_name = configuration.user_name || 'guest';
-			var password = configuration.password || 'guest';
+			var server_url = configuration.server_url || 'bunny.ubioulu.fi:15674/stomp';
+			self.send_queue = configuration.send_queue || "/exchange/soapbox/middleware";
+			var receive_queue = configuration.receive_queue || "/exchange/soapbox/hotspot";
+			var user_name = configuration.user_name || 'soapbox';
+			var password = configuration.password || '7rD7zL8RtckRzEXD';
 			var vhost = configuration.vhost || '/';
-			var debug = configuration.debug || false;
+			var debug = configuration.debug || true;
 			
 			//Stomp initialization
 			self.ws = new SockJS(server_url);
@@ -365,10 +365,10 @@ var middleware = (function() {
 					});
 					console.log("Connected to signaling server");		
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(x);
-			}, function(error) {
-				console.log('Failed to connect to signaling server: ' + error.toString());
-				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
-			}, vhost);
+                }, function(error) {
+                    console.log('Failed to connect to signaling server: ' + error.toString());
+                    return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
+                }, vhost);
 			
 		}
 		

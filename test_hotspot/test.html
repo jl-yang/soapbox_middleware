@@ -1,0 +1,44 @@
+<html>
+    <head>
+		
+		<script src="../js/sockjs.js"></script>
+		<script src="../js/stomp.js"></script>		
+		<script src="../js/adapter.js"></script>
+		<script src="../js/MediaStreamRecorder.js"></script>
+        <script src="../js/middleware_api.js"></script>
+		<title>Test</title>
+
+	</head>	
+    <body>
+		
+		<script>
+            var ws = new SockJS("bunny.ubioulu.fi:15674/stomp");
+            var stomp = Stomp.over(ws);
+			stomp.heartbeat.outgoing = 0;
+			stomp.heartbeat.incoming = 0;
+            stomp.connect("soapbox", "7rD7zL8RtckRzEXD", 
+                function (x) {
+                    console.log("on connected");
+                    
+                    stomp.subscribe("/exchange/lmevent/fi.ubioulu.lmevent", function(message) {
+                    
+                    });
+                    
+                    //Try to send message
+                    full_screen = {"event":{"id":"123","operation":[{"parameter":[{"name":"fullscreenapp","type":"id"},{"name":"http:\/\/www.ubioulu.fi","type":"resource"}],"type":"setContent"}],"session":"ubi-hotspot-15","name":"fullscreenon","type":"changeState","endpoint":""}};
+                    resume_normal = {"event":{"id":"123","session":"ubi-hotspot-15","name":"fullscreenoff","type":"changeState","endpoint":""}};
+                    
+                    stomp.send("/exchange/lmevent/fi.ubioulu.lmevent", {}, JSON.stringify(resume_normal));
+                    //stomp.send("/exchange/lmevent/fi.ubioulu.lmevent", {}, JSON.stringify(resume_normal));
+                    
+                    
+                },
+                function (error) {
+                    console.log("on error");
+                },'/');
+                
+            
+		</script>
+		
+    </body>
+</html>
