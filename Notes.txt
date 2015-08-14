@@ -1,0 +1,1 @@
+We will not use relay/pipes because it would produce potential latency.

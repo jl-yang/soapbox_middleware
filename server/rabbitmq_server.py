@@ -1,7 +1,7 @@
 import pika
 import json
 import requests
-
+import uuid
 
 
 
@@ -73,6 +73,8 @@ class Middleware(object):
     TEST_HOTSPOT_USRNAME = 'middleware'
     TEST_HOTSPOT_PASSWORD = '5492pn0GE884E5Ma6nO44KO0N7875W4v'
     
+    
+    
     def __init__(self):
     
         self._connection = None
@@ -89,6 +91,12 @@ class Middleware(object):
             #Reset test hotspot to default
             r = requests.get(Middleware.HOTSPOT_FULLSCREEN_OFF_URL)
         
+        #Soapbox info
+        self.soapbox = {
+            "id": str(uuid.uuid4())
+        }
+        
+        #Hotspot clients info
         self._likes = 0
         self._dislikes = 0
         self._reports = 0
@@ -150,23 +158,29 @@ class Middleware(object):
                                     
     def on_message(self, channel, deliver, properties, body):
         """Called when there is a message"""
-        msgObj = json.loads(body)
-        
-        if msgObj.get("type") != "ice-candidate":
+        msgObj = json.loads(body)        
+        type = msgObj.get("type")
+        sender = msgObj.get("sender")
+        receiver = msgObj.get("receiver")
+        if type != "ice-candidate":
             print " [x] Message received.      Type:", \
-                "{0: <30}".format(msgObj.get("type")), \
-                "{0: <15}".format(msgObj.get("sender")), \
+                "{0: <30}".format(type), \
+                "{0: <15}".format(sender), \
                 ">>", \
-                "{0: >15}".format(msgObj.get("receiver"))
+                "{0: >15}".format(receiver)
                
         if msgObj.get("receiver") == "all":
             return
         
-        type = msgObj.get("type")
         
         
         #Control broadcast in test hotspot according to first submit info from soapbox website
-            
+        if type == "online":
+            if sender == "soapbox":
+                self.send_soapbox(self.soapbox["id"])
+            elif sender == "hotspot":
+                #send_hotspot() 
+                pass
             
             
         #Stop speech transmission in hotspot website according to message from soapbox website
