@@ -1,13 +1,26 @@
 {
-	"sender": "relay-server",
-	"receiver": "soapbox",
+	"sender": "soapbox",
+	"receiver": "middleware",
 	"timestamp": "2013-08-28T11:51:47.746Z",
 	"type": "ice-candidate",
 	"data": {
+        "hotspot_id": 
 		"sdp": XXX,
 		"ice": XXX
 	}
 }
 
 
-type: ice-candidate, offer, answer, stop_speech_transmission
+type:   ice-candidate, offer, answer, 
+        start_broadcast, stop_broadcast, meta-data,
+        request_offer
+        
+{
+	"sender": "middleware",
+	"receiver": "soapbox",
+	"timestamp": "2013-08-28T11:51:47.746Z",
+	"type": "request_offer",
+	"data": {
+		"hotspot_id": uuid4
+	}
+}

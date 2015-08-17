@@ -38,9 +38,10 @@
 				self.localVideo.src = URL.createObjectURL(stream); 
                 soapbox = new Soapbox();
 				stomp = soapbox.connect(function () {
-					//soapbox.submit({"name": "Jilin"});
-					//soapbox.start(stream);
-					
+					soapbox.submit({"name": "Jilin"});
+                    soapbox.register();
+					soapbox.start(stream);
+				
 					//soapbox.record(self.localVideo, localStream);
 					
 				});	

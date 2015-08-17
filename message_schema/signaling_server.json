@@ -1,0 +1,27 @@
+self.hotspots = [
+    {
+        "id": '16fd2706-8baf-433b-82eb-8c7fada847da',
+        "name": "test_hotspot"
+    },
+    {
+        "id": '16fd2706-8baf-433b-82eb-8c7fada847db',
+        "name": "test_hotspot"
+    }    
+]
+
+self.offers = [
+    {
+        "id": XXX, 
+        "offer": XXX,
+        "used": True
+    },
+    {
+        "id": XXX, 
+        "offer": XXX,
+        "used": False
+    }
+]
+
+self.soapbox = {
+    "id": XXX    
+}

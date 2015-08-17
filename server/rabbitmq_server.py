@@ -2,7 +2,7 @@ import pika
 import json
 import requests
 import uuid
-
+import datetime
 
 
 
@@ -92,10 +92,10 @@ class Middleware(object):
             r = requests.get(Middleware.HOTSPOT_FULLSCREEN_OFF_URL)
         
         #Soapbox info
-        self.soapbox = {
-            "id": str(uuid.uuid4())
-        }
+        self.soapbox = {}
+        self.offers = [] #Need to be at least one when soapbox is registered
         
+        self.hotspots = []        
         #Hotspot clients info
         self._likes = 0
         self._dislikes = 0
@@ -146,41 +146,65 @@ class Middleware(object):
         self._channel.basic_consume(self.on_message, queue=self.MIDDLEWARE_QUEUE_NAME)
         
     
-    def send_soapbox(self, msg):           
+    def send_soapbox(self, type, data):     
+        msgObject = {
+            "sender": "middleware",
+            "receiver": "soapbox",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "type": type,
+            "data": data
+        }
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.SOAPBOX_ROUTING_KEY, 
-                                    body=json.dumps(msg))
+                                    body=json.dumps(msgObject))
     
-    def send_hotspot(self, msg):           
+    def send_hotspot(self, type, data):       
+        msgObject = {
+            "sender": "middleware",
+            "receiver": "hotspot",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "type": type,
+            "data": data 
+        }    
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.HOTSPOT_ROUTING_KEY, 
-                                    body=json.dumps(msg))
+                                    body=json.dumps(msgObject))
                                     
     def on_message(self, channel, deliver, properties, body):
-        """Called when there is a message"""
         msgObj = json.loads(body)        
         type = msgObj.get("type")
         sender = msgObj.get("sender")
         receiver = msgObj.get("receiver")
-        if type != "ice-candidate":
-            print " [x] Message received.      Type:", \
-                "{0: <30}".format(type), \
-                "{0: <15}".format(sender), \
-                ">>", \
-                "{0: >15}".format(receiver)
-               
-        if msgObj.get("receiver") == "all":
-            return
+        data = msgObj.get("data")
+        print " [x] Message received.      Type:", \
+            "{0: <30}".format(type), \
+            "{0: <15}".format(sender), \
+            ">>", \
+            "{0: >15}".format(receiver)
+                       
         
-        
-        
-        #Control broadcast in test hotspot according to first submit info from soapbox website
-        if type == "online":
-            if sender == "soapbox":
-                self.send_soapbox(self.soapbox["id"])
-            elif sender == "hotspot":
-                #send_hotspot() 
-                pass
+        if sender == "soapbox":
+            #Control broadcast in test hotspot according to first submit info from soapbox website
+            if type == "register":
+                _uuid = self._create_unique_uuid()
+                self.soapbox["id"] = _uuid
+                #Request an offer for possible hotspot client, which will be assigned an uuid first
+                if(len(self.offers) <= len(self.hotspots)):  
+                    _hotspot_id = self._create_unique_uuid()
+                    self.offers.append({"id": _hotspot_id, "offer": None, "used": False})
+                    self.send_soapbox("request_offer", {"hotspot_id": _hotspot_id});
+            if type == "offer":
+                for i, val in enumerate(self.offers):
+                    if val["offer"] is None:
+                        self.offers[i]["offer"] = data["sdp"]
+                        break
+            if type == "stop_broadcast":
+                self.soapbox = {}
+                self.offers = []                
+            
+        elif sender == "hotspot":
+            #send_hotspot() 
+            pass
             
             
         #Stop speech transmission in hotspot website according to message from soapbox website
@@ -223,6 +247,24 @@ class Middleware(object):
         msgObj = json.loads(body)
         print "TEST_HOTSPOT Message: ", msgObj
     
+    def _create_unique_uuid(self):
+        IS_UNIQUE = False
+        while IS_UNIQUE == False:
+            _uuid = str(uuid.uuid4()) 
+            IS_UNIQUE = True            
+            #Compare with possible soapbox id first
+            if self.soapbox.get("id") is not None:
+                if _uuid == self.soapbox["id"]:
+                    IS_UNIQUE = False
+                    continue
+            #Compare with already existed hotspot id
+            for i, val in enumerate(self.hotspots):
+                if _uuid == val["id"]:
+                    IS_UNIQUE = False
+                    break
+            if IS_UNIQUE == True:
+                return _uuid
+                
 def start_middleware():
     middleware = Middleware()
     try:
