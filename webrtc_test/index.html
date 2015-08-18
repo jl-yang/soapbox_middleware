@@ -14,7 +14,8 @@
             <video id="localVideo" autoplay muted></video>         			
         </div>
 		
-		<script>
+		<script>  
+            
 			var localVideo = document.getElementById('localVideo');
 			var self = this;
 			var localStream;
@@ -45,7 +46,12 @@
 					//soapbox.record(self.localVideo, localStream);
 					
 				});	
-				
+                     
+		
+            //Try to tell signaling server that it is about to close
+            window.onbeforeunload = function(event) {
+                soapbox.stop();
+            };
 				
 				
 			}

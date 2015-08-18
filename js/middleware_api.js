@@ -24,10 +24,6 @@ var middleware = (function() {
                 }
 				console.log('Added localStream to PeerConnection');
             }
-            if (config.onaddstream)
-                peer.onaddstream = function(event) {
-                    config.onaddstream(event.stream, config.to);
-                };
             if (config.onicecandidate) {
                 peer.onicecandidate = function(event) {
                     if (event.candidate) {
@@ -35,10 +31,6 @@ var middleware = (function() {
                     }
                 };
             }           
-            var gotLocalDescription2 = function (description) {
-                console.log("Helloe");
-                console.log(description);
-            };
             
             var _desc = null;
             function gotLocalDescription() {
@@ -89,7 +81,6 @@ var middleware = (function() {
         }
     };
     
-    
 	//API for Soapbox website
 	window.Soapbox = function() {
         var self = this;
@@ -110,7 +101,7 @@ var middleware = (function() {
 		this.connect = connectMiddleware;
 		this.submit = submitSpeechInfo;
 		this.update = submitSpeechInfo;
-        this.register = registerInMiddleware;
+        this.register = registerInMiddleware; 
 		this.start = startBroadcast;
 		this.stop = stopBroadcast;
 		this.send = sendMessageToMiddleware;
@@ -120,11 +111,6 @@ var middleware = (function() {
 		
 		//Record API
 		this.record = recordSpeechInBackground;
-		
-		//Try to tell signaling server that it is about to close
-		window.onbeforeunload = function(event) {
-			sendMessageToMiddleware("stop_broadcast", null);
-		};
 		
 		function onReceiveLikesUpdate(likes) {
 			//None
@@ -231,11 +217,11 @@ var middleware = (function() {
             var options = {
                 "stream": self.localStream,
                 "onicecandidate": function (event) {
-                    sendMessageToMiddleware('ice-candidate', {'ice': event.candidate});
+                    sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
                     
                 },
                 "gotLocalDescription": function (description) {      
-                    sendMessageToMiddleware("offer", {'sdp': description});
+                    sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': hotspot_id});
                 },
                 "sdpConstraints": self.sdpConstraints
             };            
@@ -279,13 +265,12 @@ var middleware = (function() {
 	window.Hotspot = function () {
 		var self = this;
 		var ws, stomp, send_queue;
-		var PeerConnection, remoteVideo, remoteStream;
+		var PeerConnection, remoteVideo, remoteStream, hotspot_id;
 		
+        this.itself = "hotspot";
 		this.setup = setupVideoDisplayObject;
 		this.connect = connectMiddleware;
-		this.wait = waitForSpeechTransmission;
-		this.stop = stopSpeechTransmission;
-		this.check = checkSpeechTransmissionStatus;
+        this.register = registerInMiddleware;
 		this.send = sendMessageToMiddleware;
 		this.like = addLike;
 		this.dislike = addDislike;
@@ -308,14 +293,18 @@ var middleware = (function() {
 		
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
-			if (checkSpeechTransmissionStatus() === true)
-				sendMessageToMiddleware("stop_speech_transmission", null);
+            sendMessageToMiddleware("unregister", {"hotspot_id": hotspot_id});
 		};
 		
 		function setupVideoDisplayObject(remoteVideoObject) {
 			self.remoteVideo = remoteVideoObject;
 		}
 		
+        function registerInMiddleware(){
+            waitForSpeechTransmission();
+            sendMessageToMiddleware("register", {"name": "test-hotspot-15"});
+        }
+        
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
 			var configuration = configuration || {};
@@ -337,8 +326,6 @@ var middleware = (function() {
 			
 			self.stomp.connect(user_name, password, 
 				function(connected_frame) {
-                    registerWithSessionID(connected_frame.headers.session);
-                    
 					var id = self.stomp.subscribe(receive_queue, 
 						//Handling incoming messages
 						function (message) {
@@ -346,7 +333,14 @@ var middleware = (function() {
 							if(signal.receiver !== 'hotspot' && signal.receiver !== 'all')
 							{	
 								return;
-							}						
+							}					
+                            if (hotspot_id && signal.data.hotspot_id && hotspot_id !== signal.data.hotspot_id) {
+                                return;
+                            }
+                            if (signal.type == "register" && signal.data.hotspot_id) {
+                                hotspot_id = signal.data.hotspot_id;
+                                console.log("My hotspot id: ", hotspot_id);
+                            }
 							if (signal.type == "offer" && signal.data.sdp) {				
 								waitForSpeechTransmission();						
 								self.PeerConnection.setRemoteDescription(new RTCSessionDescription(signal.data.sdp), function () {
@@ -360,8 +354,8 @@ var middleware = (function() {
 							else if(signal.type == "ice-candidate" && signal.data.ice) {
 								self.PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
 							}
-							else if(signal.type == "stop_speech_transmission") {
-								stopSpeechTransmission(false);
+							else if(signal.type == "stop_broadcast") {
+								stopSpeechTransmission();
 							}
 							else if(signal.type == "like") {
 								onReceiveLikesUpdate(signal.data.likes);
@@ -375,7 +369,7 @@ var middleware = (function() {
 							
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});                    
-					return typeof onConnectCallback !== "function" ? null : onConnectCallback(x);
+					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
                 }, function(error) {
                     console.log('Failed to connect to signaling server: ' + error.toString());
                     return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
@@ -398,27 +392,15 @@ var middleware = (function() {
 		}
 		
 		function stopSpeechTransmission(initiative) {
-			if (typeof initiative === "undefined" || initiative === true) {
-				if(self.PeerConnection && self.PeerConnection.signalingState != "closed") {
-					self.PeerConnection.close();
-					self.PeerConnection = null;			
-					sendMessageToMiddleware("stop_speech_transmission", null);				
-					console.log("Speech transmission stopped actively");
-					return true;
-				} else {
-					console.log("Stop speech failure");
-					return false;
-				}	
-			}
-			else {
-				if(self.PeerConnection) {
-					self.PeerConnection.close();
-					self.PeerConnection = null;
-					console.log("Speech transmission stopped passively");
-					return true;
-				}
-			}
-				
+            if(self.PeerConnection && self.PeerConnection.signalingState != "closed") {
+                self.PeerConnection.close();
+                self.PeerConnection = null;						
+                console.log("Speech transmission stopped");
+                return true;
+            } else {
+                console.log("Stop speech failure");
+                return false;
+            }					
 		}
 		
 		function checkSpeechTransmissionStatus() {
@@ -436,7 +418,7 @@ var middleware = (function() {
 		function sendMessageToMiddleware(type, payload) {
 			var message_object = {
 				'sender': self.itself,
-				'receiver': receiver,
+				'receiver': "middleware",
 				'timestamp': new Date().toISOString(),
 				'type': type,
 				'data': payload || {}
@@ -448,10 +430,6 @@ var middleware = (function() {
 				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
 			}
 		}
-        
-		function registerInMiddleware(){
-            sendMessageToMiddleware("online", null);
-        }
         
 		function addLike() {
 			sendMessageToMiddleware("like", {"hotspot": "test-hotspot"});
@@ -478,7 +456,7 @@ var middleware = (function() {
 			self.PeerConnection.setLocalDescription(
 				description,	
 				function () {
-					sendMessageToMiddleware('middleware',	'answer', {'sdp': description});
+					sendMessageToMiddleware('answer', {'sdp': description, 'hotspot_id': hotspot_id});
 					console.log('Answer sdp generated');
 				}, 
 				function () { 
@@ -489,7 +467,7 @@ var middleware = (function() {
 		
 		function _gotLocalIceCandidate(event) {
 			if (event.candidate) {
-				sendMessageToMiddleware("middleware", 'ice-candidate', {'ice': event.candidate});
+				sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
 				console.log('Local ICE candidate gathered');
 			}
 		}

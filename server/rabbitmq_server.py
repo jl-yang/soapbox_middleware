@@ -72,8 +72,8 @@ class Middleware(object):
     # Note: only this credential has access to publish message to test hotspot
     TEST_HOTSPOT_USRNAME = 'middleware'
     TEST_HOTSPOT_PASSWORD = '5492pn0GE884E5Ma6nO44KO0N7875W4v'
-    
-    
+    #This amount relates to how many offers the soapbox needs to provide at the beginning, for possible transmission
+    ALLOCATE_HOTSPOT_AMOUNT = 1
     
     def __init__(self):
     
@@ -93,7 +93,6 @@ class Middleware(object):
         
         #Soapbox info
         self.soapbox = {}
-        self.offers = [] #Need to be at least one when soapbox is registered
         
         self.hotspots = []        
         #Hotspot clients info
@@ -157,8 +156,9 @@ class Middleware(object):
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.SOAPBOX_ROUTING_KEY, 
                                     body=json.dumps(msgObject))
+        self._print_formated_message(msgObject, False) 
     
-    def send_hotspot(self, type, data):       
+    def send_hotspot(self, type, data, receiver="hotspot"):       
         msgObject = {
             "sender": "middleware",
             "receiver": "hotspot",
@@ -168,44 +168,76 @@ class Middleware(object):
         }    
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.HOTSPOT_ROUTING_KEY, 
-                                    body=json.dumps(msgObject))
-                                    
-    def on_message(self, channel, deliver, properties, body):
-        msgObj = json.loads(body)        
+                                    body=json.dumps(msgObject))        
+        self._print_formated_message(msgObject, False)
+        
+    def _print_formated_message(self, msgObj, is_receiving=True):
         type = msgObj.get("type")
         sender = msgObj.get("sender")
         receiver = msgObj.get("receiver")
         data = msgObj.get("data")
-        print " [x] Message received.      Type:", \
-            "{0: <30}".format(type), \
-            "{0: <15}".format(sender), \
-            ">>", \
-            "{0: >15}".format(receiver)
-                       
+        if type != "ice-candidate":
+            if is_receiving is True:
+                print " [x] Message received.      Type:", \
+                    "{0: <30}".format(type), \
+                    "{0: <15}".format(sender), \
+                    ">>", \
+                    "{0: >15}".format(receiver)
+            else:
+                print " [*] Message sent.          Type:", \
+                    "{0: <30}".format(type), \
+                    "{0: <15}".format(sender), \
+                    ">>", \
+                    "{0: >15}".format(receiver)
+            
+        return type, sender, receiver, data
+    
+    def on_message(self, channel, deliver, properties, body):
+        msgObj = json.loads(body)    
+        
+        type, sender, receiver, data = self._print_formated_message(msgObj)     
         
         if sender == "soapbox":
             #Control broadcast in test hotspot according to first submit info from soapbox website
             if type == "register":
                 _uuid = self._create_unique_uuid()
-                self.soapbox["id"] = _uuid
-                #Request an offer for possible hotspot client, which will be assigned an uuid first
-                if(len(self.offers) <= len(self.hotspots)):  
-                    _hotspot_id = self._create_unique_uuid()
-                    self.offers.append({"id": _hotspot_id, "offer": None, "used": False})
-                    self.send_soapbox("request_offer", {"hotspot_id": _hotspot_id});
-            if type == "offer":
-                for i, val in enumerate(self.offers):
-                    if val["offer"] is None:
-                        self.offers[i]["offer"] = data["sdp"]
-                        break
-            if type == "stop_broadcast":
-                self.soapbox = {}
-                self.offers = []                
+                self.soapbox["id"] = _uuid                    
+                #When soapbox is down and everyone is waiting, the soapbox should give enough offers once reconnects
+                for hotspot in self.hotspots:
+                    self.send_soapbox("request_offer", {"hotspot_id": hotspot["id"]}); 
+                
+            if type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+                self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
+                
+            if type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
+                self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
+                
+            if type == "stop_broadcast":    
+                #Send stop message to all hotspot
+                for hotspot in self.hotspots:
+                    self.send_hotspot("stop_broadcast", {"hotspot_id": hotspot["id"]})                
+                self.soapbox = {}                 
             
         elif sender == "hotspot":
-            #send_hotspot() 
-            pass
+            if type == "register" and data["name"] is not None:      
+                _hotspot_id = self._create_unique_uuid()
+                self.hotspots.append({"id": _hotspot_id, "name": data["name"]})
+                self.send_hotspot("register", {"hotspot_id": _hotspot_id})
+                #Request an offer for hotspot client                    
+                self.send_soapbox("request_offer", {"hotspot_id": _hotspot_id}); 
+                                
+            if type == "answer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+                self.send_soapbox("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
             
+            if type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:
+                self.send_soapbox("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
+            
+            if type == "unregister" and data["hotspot_id"] is not None:
+                for i, hotspot in enumerate(self.hotspots):
+                    if hotspot["id"] == data["hotspot_id"]:
+                        self.hotspots.pop(i)
+                        break
+                print "Hotspot unregistered"
             
         #Stop speech transmission in hotspot website according to message from soapbox website
         

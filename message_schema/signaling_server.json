@@ -9,15 +9,18 @@ self.hotspots = [
     }    
 ]
 
+#id means the assigned hotspot_id
 self.offers = [
     {
         "id": XXX, 
         "offer": XXX,
+        "ice": [{}, {},{}],
         "used": True
     },
     {
         "id": XXX, 
         "offer": XXX,
+        "ice": [],
         "used": False
     }
 ]
@@ -25,3 +28,5 @@ self.offers = [
 self.soapbox = {
     "id": XXX    
 }
+
+#Should wait certain time like 1 second before asking hotspot to register
