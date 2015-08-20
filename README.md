@@ -146,6 +146,16 @@ You must be within the panOulu network (not ee network, or others)
 Problem: Video transmission starts and freezes at the first frame using WebRTC.
 Add "autoplay" attribute to the video tag for displaying the video 
 
+Problem: When soapbox is broadcasting to many hotspots and soapbox goes down and reconnects, basically middleware will ask for multiple offers at the same time.
+Then soapbox will react to it, and iceConnectionState remain "checking" and adapter.js has typeeeror as cannot setRemoteDescription because STATE_INPROGRESS
+*This problem is actually very severe if multiple hotspot clients are requesting simultaneously, or soapbox goes down in the middle of multi-broadcasting.*
+I tried delaying the answers from middleware, or disabling the ICE trickling, but neither worked.
+The only solution is to send "ready" flag when soapbox has successfully set remote description.
+Meanwhile, enable middleware to start new threads for sending requests of offers to soapbox only when status of soapbox is ready.
+Remember to use lock in threaded function, as it could cause serious potential problems if the request_offer message is not sent integratedly
+http://w3c.github.io/webrtc-pc/#rtciceconnectionstate-enum
+https://groups.google.com/forum/#!topic/discuss-webrtc/vINLJSSOxtE
+
 
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.

@@ -3,7 +3,8 @@ import json
 import requests
 import uuid
 import datetime
-
+from threading import Thread, Lock
+import time
 
 
 class Middleware(object):
@@ -93,9 +94,11 @@ class Middleware(object):
         
         #Soapbox info
         self.soapbox = {}
+        self.IS_SOAPBOX_READY = True
+        self.request_offer_threads = []
         
-        self.hotspots = []        
         #Hotspot clients info
+        self.hotspots = []    
         self._likes = 0
         self._dislikes = 0
         self._reports = 0
@@ -191,7 +194,25 @@ class Middleware(object):
                     "{0: >15}".format(receiver)
             
         return type, sender, receiver, data
+        
+    def _threaded_send_request_offer(self, id):
+        lock = Lock()
+        lock.acquire()
+        try:
+            while self.IS_SOAPBOX_READY != True:
+                pass
+            self.IS_SOAPBOX_READY = False
+            self.send_soapbox("request_offer", {"hotspot_id": id});  
+        finally:
+            lock.release()
     
+    def threaded_send_request_offer(self, id):        
+        thread = Thread(target=self._threaded_send_request_offer, args= (id,))
+        thread.setDaemon(True)        
+        thread.start()
+        
+        self.request_offer_threads.append(thread)
+        
     def on_message(self, channel, deliver, properties, body):
         msgObj = json.loads(body)    
         
@@ -203,9 +224,10 @@ class Middleware(object):
                 _uuid = self._create_unique_uuid()
                 self.soapbox["id"] = _uuid                    
                 #When soapbox is down and everyone is waiting, the soapbox should give enough offers once reconnects
+                self.IS_SOAPBOX_READY = True
                 for hotspot in self.hotspots:
-                    self.send_soapbox("request_offer", {"hotspot_id": hotspot["id"]}); 
-                
+                    self.threaded_send_request_offer(hotspot["id"])
+                    
             if type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
@@ -218,27 +240,33 @@ class Middleware(object):
                     self.send_hotspot("stop_broadcast", {"hotspot_id": hotspot["id"]})                
                 self.soapbox = {}                 
             
+            if type == "ready":
+                self.IS_SOAPBOX_READY = True
+            
         elif sender == "hotspot":
             if type == "register" and data["name"] is not None:      
                 _hotspot_id = self._create_unique_uuid()
                 self.hotspots.append({"id": _hotspot_id, "name": data["name"]})
                 self.send_hotspot("register", {"hotspot_id": _hotspot_id})
                 #Request an offer for hotspot client                    
-                self.send_soapbox("request_offer", {"hotspot_id": _hotspot_id}); 
-                                
+                self.threaded_send_request_offer(_hotspot_id) 
+                 
             if type == "answer" and data["sdp"] is not None and data["hotspot_id"] is not None:
                 self.send_soapbox("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
-            
+                
             if type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:
                 self.send_soapbox("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
-            if type == "unregister" and data["hotspot_id"] is not None:
-                for i, hotspot in enumerate(self.hotspots):
-                    if hotspot["id"] == data["hotspot_id"]:
-                        self.hotspots.pop(i)
-                        break
-                print "Hotspot unregistered"
-            
+            if type == "unregister" :
+                if data["hotspot_id"] is None:
+                    print "Unknown hotspot offline."
+                else:
+                    for i, hotspot in enumerate(self.hotspots):
+                        if hotspot["id"] == data["hotspot_id"]:
+                            self.hotspots.pop(i)
+                            break
+                    self.send_soapbox("unregister", {"hotspot_id": data["hotspot_id"]})
+                
         #Stop speech transmission in hotspot website according to message from soapbox website
         
         
@@ -301,11 +329,11 @@ def start_middleware():
     middleware = Middleware()
     try:
         middleware.run()
-        
+        for thread in middleware.request_offer_threads:
+            thread.stop()
         
     except KeyboardInterrupt:
         middleware.stop()
-        
         
         
 if __name__ == "__main__":

@@ -40,8 +40,9 @@
                 soapbox = new Soapbox();
 				stomp = soapbox.connect(function () {
 					soapbox.submit({"name": "Jilin"});
-                    soapbox.register();
 					soapbox.start(stream);
+                    
+                    soapbox.register();
 				
 					//soapbox.record(self.localVideo, localStream);
 					
