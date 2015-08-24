@@ -15,7 +15,8 @@ type:   ice-candidate, offer, answer,
         start_broadcast, stop_broadcast, meta-data,
         request_offer
         register, unregister
-        
+        likes, dislikes, reports
+        like, dislike, report
         
 {
 	"sender": "middleware",

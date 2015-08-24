@@ -1,0 +1,25 @@
+<html>
+	<head>
+		<title>RTCPeerConnection remote client for receiving Video stream</title>
+		<script src="../js/sockjs.js"></script>
+		<script src="../js/stomp.js"></script>	
+		<script src="../js/middleware_api.js"></script>
+	</head>
+	<body>
+		
+		<script>
+			//Example usage
+			
+			var audience = new Audience();
+            //Should only connect once
+			audience.connect(function() {
+                //You can comment here
+            });
+			
+            //It will fail if connection has not been established yet
+            //audience.comment("I want to make a comment now!");
+			
+			
+		</script>
+	</body>
+</html>

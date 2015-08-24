@@ -99,9 +99,18 @@ class Middleware(object):
         
         #Hotspot clients info
         self.hotspots = []    
-        self._likes = 0
-        self._dislikes = 0
-        self._reports = 0
+        self._likes = {
+            "total": 0,
+            "likes": {}
+        }
+        self._dislikes = {
+            "total": 0,
+            "dislikes": {}
+        }
+        self._reports = {
+            "total": 0,
+            "reports": {}
+        }
                                        
     def run(self):
         self._connection = pika.SelectConnection(parameters=self._parameters, on_open_callback=self.on_connected)
@@ -161,7 +170,7 @@ class Middleware(object):
                                     body=json.dumps(msgObject))
         self._print_formated_message(msgObject, False) 
     
-    def send_hotspot(self, type, data, receiver="hotspot"):       
+    def send_hotspot(self, type, data):       
         msgObject = {
             "sender": "middleware",
             "receiver": "hotspot",
@@ -173,6 +182,18 @@ class Middleware(object):
                                     routing_key=self.HOTSPOT_ROUTING_KEY, 
                                     body=json.dumps(msgObject))        
         self._print_formated_message(msgObject, False)
+    
+    def start_broadcast(self):
+        self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
+                                    routing_key=self.TEST_HOTSPOT_ROUTING_KEY,
+                                    body=json.dumps(self.JSON_FULLSCREEN_ON))
+        print "[*] Message sent about starting broadcasting in hotspot"
+    
+    def stop_broadcast(self):
+        self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
+                                    routing_key=self.TEST_HOTSPOT_ROUTING_KEY,
+                                    body=json.dumps(self.JSON_FULLSCREEN_OFF))
+        print "[*] Message sent about stopping broadcasting in hotspot"
         
     def _print_formated_message(self, msgObj, is_receiving=True):
         type = msgObj.get("type")
@@ -233,13 +254,28 @@ class Middleware(object):
                 
             if type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
                 self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
-                
+            
+            if type == "start_broadcast":
+                #Redirect all hotspots into full screen broadcast state
+                if self.ENABLE_TEST_HOTSPOT is True:
+                    self.start_broadcast()
+            
+            #Stop speech transmission in hotspot website according to message from soapbox website
             if type == "stop_broadcast":    
                 #Send stop message to all hotspot
-                for hotspot in self.hotspots:
-                    self.send_hotspot("stop_broadcast", {"hotspot_id": hotspot["id"]})                
-                self.soapbox = {}                 
-            
+                self.send_hotspot("stop_broadcast", None)                
+                self.soapbox = {}
+                #Save data of likes, dislikes, reports and clear them
+                self._likes["likes"] = {}
+                self._likes["total"] = 0
+                self._dislikes["dislikes"] = {}
+                self._dislikes["total"] = 0
+                self._reports["reports"] = {}
+                self._reports["total"] = 0
+                #Should also redirect all hotspots back from full screen state
+                if self.ENABLE_TEST_HOTSPOT is True:
+                    self.stop_broadcast()
+                    
             if type == "ready":
                 self.IS_SOAPBOX_READY = True
             
@@ -251,13 +287,13 @@ class Middleware(object):
                 #Request an offer for hotspot client                    
                 self.threaded_send_request_offer(_hotspot_id) 
                  
-            if type == "answer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+            elif type == "answer" and data["sdp"] is not None and data["hotspot_id"] is not None:
                 self.send_soapbox("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
-            if type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:
+            elif type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:
                 self.send_soapbox("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
-            if type == "unregister" :
+            elif type == "unregister":
                 if data["hotspot_id"] is None:
                     print "Unknown hotspot offline."
                 else:
@@ -266,17 +302,50 @@ class Middleware(object):
                             self.hotspots.pop(i)
                             break
                     self.send_soapbox("unregister", {"hotspot_id": data["hotspot_id"]})
+                    
+            #Control likes, dislikes, reports info 
+            elif type == "like" and data["hotspot_id"] is not None:	
+                _id = data["hotspot_id"]
+                #Add it to specific hotspot subdirectory
+                if self._likes["likes"].get(_id) is None:
+                    self._likes["likes"][_id] = 1
+                else:
+                    self._likes["likes"][_id] += 1
+                #Add it to total
+                self._likes["total"] += 1
+                print "[*] Likes updated: ", self._likes["total"]
+                self.send_soapbox("likes", {"likes": self._likes["total"]})
                 
-        #Stop speech transmission in hotspot website according to message from soapbox website
+            elif type == "dislike" and data["hotspot_id"] is not None:	
+                _id = data["hotspot_id"]
+                #Add it to specific hotspot subdirectory
+                if self._dislikes["dislikes"].get(_id) is None:
+                    self._dislikes["dislikes"][_id] = 1
+                else:
+                    self._dislikes["dislikes"][_id] += 1
+                #Add it to total
+                self._dislikes["total"] += 1
+                print "[*] Dislikes updated: ", self._dislikes["total"]
+                self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
+                
+            elif type == "report" and data["hotspot_id"] is not None:	
+                _id = data["hotspot_id"]
+                #Add it to specific hotspot subdirectory
+                if self._reports["reports"].get(_id) is None:
+                    self._reports["reports"][_id] = 1
+                else:
+                    self._reports["reports"][_id] += 1
+                #Add it to total
+                self._reports["total"] += 1
+                print "[*] Reports updated: ", self._reports["total"]
+                self.send_soapbox("reports", {"reports": self._reports["total"]})
         
-        
-        #Control likes, dislikes, reports info     
-        if type == "like":	
-            self._likes += 1
-            print "Likes: ", self._likes
-            update_likes = {"sender": "middleware", "receiver": "all", "timestamp": None, "type": "like", "data": {"likes": self._likes}}
-            self.send_hotspot(update_likes)
-
+        elif sender == "audience":                
+            if type == "comment" and data["comment"] is not None:
+                #Print out the comment now
+                print "Comment: ", data["comment"]                
+                self.send_soapbox("comment", {"comment": data["comment"]})
+                self.send_hotspot("comment", {"comment": data["comment"]})
         
     #Test hotspot    
     def on_exchange_declared(self, frame):
@@ -324,13 +393,14 @@ class Middleware(object):
                     break
             if IS_UNIQUE == True:
                 return _uuid
-                
+    
 def start_middleware():
     middleware = Middleware()
     try:
         middleware.run()
-        for thread in middleware.request_offer_threads:
-            thread.stop()
+        #No need to stop threads manually since they are set as daemon threads
+        #for thread in middleware.request_offer_threads:
+        #    thread._stop()
         
     except KeyboardInterrupt:
         middleware.stop()

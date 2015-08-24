@@ -37,9 +37,7 @@ var middleware = (function() {
                 };
             }           
             peer.oniceconnectionstatechange = function(event) {
-                console.log(event);
-                console.log(peer.iceConnectionState);
-                console.log(peer.iceGatheringState);
+                //Nothing
             }
             
             var _desc = null;
@@ -119,7 +117,8 @@ var middleware = (function() {
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
 		this.onreceivereports = onReceiveReportsUpdate;
-		
+		this.onreceivecomment = onReceiveComment;
+        
 		//Record API
 		this.record = recordSpeechInBackground;
 		
@@ -135,6 +134,10 @@ var middleware = (function() {
 			//None
 		}
 		
+        function onReceiveComment(comment) {
+            //None
+        }
+        
 		function submitSpeechInfo(speech_info) {
 			if (typeof speech_info !== "object") {
 				console.log("Wrong speech info format. Submit failure!");
@@ -197,16 +200,19 @@ var middleware = (function() {
                                     delete peers[signal.data.hotspot_id];
                                 }
                             }
-							else if(signal.type == "like") {
-								console.log("Now a like");
-								onReceiveLikesUpdate(signal.data.likes);
+							else if(signal.type == "likes" && signal.data.likes) {
+								self.onreceivelikes(signal.data.likes);
 							}
-							else if(signal.type == "dislike") {
-								onReceiveDislikesUpdate(signal.data.dislikes);
+							else if(signal.type == "dislikes" && signal.data.dislikes) {
+								self.onreceivedislikes(signal.data.dislikes);
 							}
-							else if(signal.type == "report") {
-								onReceiveReportsUpdate(signal.data.reports);
+							else if(signal.type == "reports" && signal.data.reports) {
+								self.onreceivereports(signal.data.reports);
 							}
+                            else if(signal.type == "comment" && signal.data.comment) {
+                                self.onreceivecomment(signal.data.comment);
+                            }
+                            
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});	
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
@@ -300,7 +306,9 @@ var middleware = (function() {
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
 		this.onreceivereports = onReceiveReportsUpdate;
-		
+		this.onreceivecomment = onReceiveComment;
+        
+        //Default handler
 		function onReceiveLikesUpdate(likes) {
 			//None
 		}
@@ -312,6 +320,10 @@ var middleware = (function() {
 		function onReceiveReportsUpdate(reports) {
 			//None
 		}
+        
+        function onReceiveComment(comment) {
+            //None
+        }
 		
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
@@ -351,7 +363,7 @@ var middleware = (function() {
 						//Handling incoming messages
 						function (message) {
 							var signal = JSON.parse(message.body);
-							if(signal.receiver !== 'hotspot' && signal.receiver !== 'all')
+							if(signal.receiver !== 'hotspot')
 							{	
 								return;
 							}					
@@ -384,16 +396,19 @@ var middleware = (function() {
 							else if(signal.type == "stop_broadcast") {
 								stopSpeechTransmission();
 							}
-							else if(signal.type == "like") {
-								onReceiveLikesUpdate(signal.data.likes);
+							else if(signal.type == "likes" && signal.data.likes) {
+								self.onreceivelikes(signal.data.likes);
 							}
-							else if(signal.type == "dislike") {
-								onReceiveDislikesUpdate(signal.data.dislikes);
+							else if(signal.type == "dislikes" && signal.data.dislikes) {
+								self.onreceivedislikes(signal.data.dislikes);
 							}
-							else if(signal.type == "report") {
-								onReceiveReportsUpdate(signal.data.reports);
+							else if(signal.type == "reports" && signal.data.reports) {
+								self.onreceivereports(signal.data.reports);
 							}
-							
+							else if(signal.type == "comment" && signal.data.comment) {
+                                self.onreceivecomment(signal.data.comment);
+                            }
+                            
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});                    
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
@@ -465,15 +480,15 @@ var middleware = (function() {
 		}
         
 		function addLike() {
-			sendMessageToMiddleware("like", {"hotspot": "test-hotspot"});
+			sendMessageToMiddleware("like", {"hotspot_id": hotspot_id});
 		}
 		
 		function addDislike() {
-			sendMessageToMiddleware("dislike", {"hotspot": "test-hotspot"});
+			sendMessageToMiddleware("dislike", {"hotspot_id": hotspot_id});
 		}
 		
 		function reportInappropriateContent() {
-			sendMessageToMiddleware("report", {"hotspot": "test-hotspot"});
+			sendMessageToMiddleware("report", {"hotspot_id": hotspot_id});
 		}
 		
 		//Local functions
@@ -500,7 +515,124 @@ var middleware = (function() {
 	
 	//API for Audience who will comment on current speech 
 	window.Audience = function () {
-		//Unimplemented
+		var self = this;
+		var ws, stomp, send_queue, temp_id;
+		
+        this.itself = "audience";
+		this.connect = connectMiddleware;
+		this.send = sendMessageToMiddleware;
+		this.like = addLike;
+		this.dislike = addDislike;
+		this.report = reportInappropriateContent;
+		this.onreceivelikes = onReceiveLikesUpdate;
+		this.onreceivedislikes = onReceiveDislikesUpdate;
+		this.onreceivereports = onReceiveReportsUpdate;
+		this.comment = addCommentToCurrentSpeech;
+        this.register = getTemporaryAudienceID;
+        
+        //Default handler
+		function onReceiveLikesUpdate(likes) {
+			//None
+		}
+		
+		function onReceiveDislikesUpdate(dislikes) {
+			//None
+		}
+		
+		function onReceiveReportsUpdate(reports) {
+			//None
+		}
+        
+        function sendMessageToMiddleware(type, payload) {
+			var message_object = {
+				'sender': self.itself,
+				'receiver': "middleware",
+				'timestamp': new Date().toISOString(),
+				'type': type,
+				'data': payload || {}
+			};
+			if(self.stomp.connected !== true) {
+				console.log("Connection to middleware is not on yet. Send failure.");
+				return;
+			} else {
+				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+			}
+		}
+        
+        function addLike() {
+			sendMessageToMiddleware("like", {"audience_id": temp_id});
+		}
+		
+		function addDislike() {
+			sendMessageToMiddleware("dislike", {"audience_id": temp_id});
+		}
+		
+		function reportInappropriateContent() {
+			sendMessageToMiddleware("report", {"audience_id": temp_id});
+		}
+        
+        function addCommentToCurrentSpeech(comment) {
+            //Comments should be just plain string
+            sendMessageToMiddleware("comment", {"comment": comment, "audience_id": temp_id});
+        }
+        
+        function getTemporaryAudienceID() {
+            sendMessageToMiddleware("register", null);
+        }
+        
+        window.onbeforeunload = function(event) {
+            sendMessageToMiddleware("unregister", {"audience_id": temp_id});
+        };
+        
+		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
+			//Parsing config params
+			var configuration = configuration || {};
+			var server_url = configuration.server_url || 'bunny.ubioulu.fi:15674/stomp';
+			self.send_queue = configuration.send_queue || "/exchange/soapbox/middleware";
+			var receive_queue = configuration.receive_queue || "/exchange/soapbox/audience";
+			var user_name = configuration.user_name || 'soapbox';
+			var password = configuration.password || '7rD7zL8RtckRzEXD';
+			var vhost = configuration.vhost || '/';
+			var debug = configuration.debug || true;
+			
+			//Stomp initialization
+			self.ws = new SockJS(server_url);
+			self.stomp = Stomp.over(self.ws);
+			self.stomp.heartbeat.outgoing = 0;
+			self.stomp.heartbeat.incoming = 0;
+			if(!debug)
+				self.stomp.debug = null;
+			
+			self.stomp.connect(user_name, password, 
+				function(connected_frame) {
+					var id = self.stomp.subscribe(receive_queue, 
+						//Handling incoming messages
+						function (message) {
+							var signal = JSON.parse(message.body);
+							if(signal.receiver !== 'audience')
+							{	
+								return;
+							}
+                            if (signal.type == "register" && typeof signal.data.audience_id !== "undefined") {
+                                temp_id = signal.data.audience_id;
+                            }
+							else if(signal.type == "likes") {
+								self.onreceivelikes(signal.data.likes);
+							}
+							else if(signal.type == "dislikes") {
+								self.onreceivedislikes(signal.data.dislikes);
+							}
+							else if(signal.type == "reports") {
+								self.onreceivereports(signal.data.reports);
+							}							
+							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
+					});                    
+					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
+                }, function(error) {
+                    console.log('Failed to connect to middleware: ' + error.toString());
+                    return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
+                }, vhost);			
+		}
 	};
 	
 })();

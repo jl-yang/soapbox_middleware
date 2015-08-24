@@ -42,8 +42,14 @@
 					soapbox.submit({"name": "Jilin"});
 					soapbox.start(stream);
                     
+                    soapbox.onreceivelikes = function (likes) {
+                        console.log("I got likes update:" + likes);
+                    };
+                    
                     soapbox.register();
-				
+                    
+                    
+                    
 					//soapbox.record(self.localVideo, localStream);
 					
 				});	
@@ -53,7 +59,7 @@
             window.onbeforeunload = function(event) {
                 soapbox.stop();
             };
-				
+            
 				
 			}
 			

@@ -14,52 +14,87 @@ Example:
 ```javascript
 //Speech info object, which will be sent to middleware once the connection is on
 var speech_info = {"name": "Jilin"};
+
 //API object
 var soapbox = new Soapbox();
+
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 soapbox.connect(function () {
 	//Submit the speech info
 	soapbox.submit(speech_info);
 	
+    //Register likes update callback
+    soapbox.onreceivelikes = function (likes) {
+        //Show the likes info
+        console.log("Current likes: " + likes);
+    };
+    
+    //Register dislikes update callback
+    soapbox.onreceivedislikes = function (dislikes) {};
+    
+    //Register reports update callback    
+    soapbox.onreceivereports = function (likes) {};
+    
+    //Register comment update callback
+    soapbox.onreceivecomment = function (comment) {};
+    
 	//Start speech transmission
 	soapbox.start(local_stream);
+    
+    //Mandatory, register itself
+    soapbox.register();
+    
 }, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+
+//Try to tell middleware that it is about to close
+window.onbeforeunload = function(event) {
+    soapbox.stop();
+};
+
 ```
 
 # Hotspot
 
 ##How to receive the speech
-Example
+Example:
 ```javascript
 //API object
 var hotspot = new Hotspot();
+
 //Setup the video object for displaying remote stream
+var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element
 hotspot.setup(remoteVideo);
+
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 hotspot.connect(function () {
-	watchButton.addEventListener("click", function() {
-		//Start waiting for speech transmission
-		var ret = hotspot.wait();
-		
-		if (ret === true) {
-			watchButton.disabled = true;
-			stopButton.disabled = false;
-		}					
-	});	
-	stopButton.addEventListener("click", function() {
-		//Stop receiving speech, this will also notice soapbox and middleware
-		var ret = hotspot.stop();
-		
-		if (ret === true) {
-			stopButton.disabled = true;
-			watchButton.disabled = false;
-		}					
-	});
+    //To register callbacks of likes, dislikes, reports, comment, usage is the same as soapbox example above
+
+    //Mandatory, register itself
+	hotspot.register();
 }, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+
+//Make sure now you are already connected, otherwise it could fail
+hotspot.like()
+hotspot.dislike()
+hotspot.report()
 ```
 
+# Audience
+
+##How to comment
+Example:
+```javascript
+//API object
+var audience = new Audience();
+
+//Each time you want to comment, you can use connection method first (different from hotspot and soapbox)
+audience.connect(function () {
+    //You can comment here 
+    audience.comment("I want to make a comment now!");
+});
+```
 
 
 
