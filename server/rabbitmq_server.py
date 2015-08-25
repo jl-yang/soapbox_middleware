@@ -198,6 +198,13 @@ class Middleware(object):
                                     body=json.dumps(msgObject))        
         self._print_formated_message(msgObject, False)
     
+    def start_waiting_broadcast(self):
+        #Turn to full screen mode now to another ads website
+        pass
+    
+    def stop_waiting_broadcast(self):
+        #This should be controlled by a timer which takes the time value from speech info, and when it countdowns to zero, this method will be called 
+    
     def start_broadcast(self):
         self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
                                     routing_key=self.TEST_HOTSPOT_ROUTING_KEY,

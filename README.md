@@ -34,7 +34,7 @@ soapbox.connect(function () {
     soapbox.onreceivedislikes = function (dislikes) {};
     
     //Register reports update callback    
-    soapbox.onreceivereports = function (likes) {};
+    soapbox.onreceivereports = function (reports) {};
     
     //Register comment update callback
     soapbox.onreceivecomment = function (comment) {};
@@ -45,7 +45,7 @@ soapbox.connect(function () {
     //Mandatory, register itself
     soapbox.register();
     
-}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+});
 
 //Try to tell middleware that it is about to close
 window.onbeforeunload = function(event) {
@@ -73,7 +73,7 @@ hotspot.connect(function () {
 
     //Mandatory, register itself
 	hotspot.register();
-}, null, null, {"server_url": "10.20.215.140:15674/stomp"});
+});
 
 //Make sure now you are already connected, otherwise it could fail
 hotspot.like()
