@@ -204,7 +204,8 @@ class Middleware(object):
     
     def stop_waiting_broadcast(self):
         #This should be controlled by a timer which takes the time value from speech info, and when it countdowns to zero, this method will be called 
-    
+        pass
+        
     def start_broadcast(self):
         self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
                                     routing_key=self.TEST_HOTSPOT_ROUTING_KEY,
@@ -261,6 +262,8 @@ class Middleware(object):
         
         type, sender, receiver, data = self._print_formated_message(msgObj)     
         
+        print msgObj
+        
         if sender == "soapbox":
             #Control broadcast in test hotspot according to first submit info from soapbox website
             if type == "register":
@@ -272,6 +275,7 @@ class Middleware(object):
                     self.threaded_send_request_offer(hotspot["id"])
                     
             elif type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+                print "Hello"
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
             elif type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
