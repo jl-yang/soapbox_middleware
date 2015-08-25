@@ -63,7 +63,8 @@ class Middleware(object):
     MIDDLEWARE_ROUTING_KEY = "middleware"
     SOAPBOX_ROUTING_KEY = "soapbox"
     HOTSPOT_ROUTING_KEY = "hotspot"
-                
+    AUDIENCE_ROUTING_KEY = "audience"
+    
     # Test hotspot exchange. 
     ENABLE_TEST_HOTSPOT = False    
     FORCE_RESET_TEST_HOTSPOT = False #Usually it would be False, use SOAP wrapper to reset test hotspot
@@ -96,6 +97,7 @@ class Middleware(object):
         self.soapbox = {}
         self.IS_SOAPBOX_READY = True
         self.request_offer_threads = []
+        self.speech_info = None
         
         #Hotspot clients info
         self.hotspots = []    
@@ -183,6 +185,19 @@ class Middleware(object):
                                     body=json.dumps(msgObject))        
         self._print_formated_message(msgObject, False)
     
+    def send_audience(self, type, data):       
+        msgObject = {
+            "sender": "middleware",
+            "receiver": "audience",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "type": type,
+            "data": data 
+        }    
+        self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
+                                    routing_key=self.AUDIENCE_ROUTING_KEY, 
+                                    body=json.dumps(msgObject))        
+        self._print_formated_message(msgObject, False)
+    
     def start_broadcast(self):
         self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
                                     routing_key=self.TEST_HOTSPOT_ROUTING_KEY,
@@ -249,19 +264,19 @@ class Middleware(object):
                 for hotspot in self.hotspots:
                     self.threaded_send_request_offer(hotspot["id"])
                     
-            if type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+            elif type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
-            if type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
+            elif type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
                 self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
-            if type == "start_broadcast":
+            elif type == "start_broadcast":
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast()
             
             #Stop speech transmission in hotspot website according to message from soapbox website
-            if type == "stop_broadcast":    
+            elif type == "stop_broadcast":    
                 #Send stop message to all hotspot
                 self.send_hotspot("stop_broadcast", None)                
                 self.soapbox = {}
@@ -276,14 +291,21 @@ class Middleware(object):
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.stop_broadcast()
                     
-            if type == "ready":
+            elif type == "ready":
                 self.IS_SOAPBOX_READY = True
+            
+            elif type == "meta-data" and data["speech_info"] is not None:
+                #Save it locally and send it to all hotspots and audience once they are online
+                self.speech_info = data["speech_info"]
             
         elif sender == "hotspot":
             if type == "register" and data["name"] is not None:      
                 _hotspot_id = self._create_unique_uuid()
                 self.hotspots.append({"id": _hotspot_id, "name": data["name"]})
                 self.send_hotspot("register", {"hotspot_id": _hotspot_id})
+                #Also send speech info 
+                if self.speech_info is not None:
+                    self.send_hotspot("meta-data", {"speech_info": self.speech_info})
                 #Request an offer for hotspot client                    
                 self.threaded_send_request_offer(_hotspot_id) 
                  
@@ -346,7 +368,10 @@ class Middleware(object):
                 print "Comment: ", data["comment"]                
                 self.send_soapbox("comment", {"comment": data["comment"]})
                 self.send_hotspot("comment", {"comment": data["comment"]})
-        
+                #Send speech info if there is any
+                if self.speech_info is not None:
+                    self.send_audience("meta-data", {"speech_info": self.speech_info})
+                
     #Test hotspot    
     def on_exchange_declared(self, frame):
         self._channel.queue_declare(callback=self.on_queue_declared, 

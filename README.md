@@ -91,6 +91,11 @@ var audience = new Audience();
 
 //Each time you want to comment, you can use connection method first (different from hotspot and soapbox)
 audience.connect(function () {
+    //Set up speech info callback, speech_info is a JSON object
+    audience.onreceivespeechinfo = function (speech_info) {
+        console.log(speech_info);
+    }
+
     //You can comment here 
     audience.comment("I want to make a comment now!");
 });

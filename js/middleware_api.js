@@ -145,7 +145,7 @@ var middleware = (function() {
 				return false;
 			} else {
 				self.speech_info = speech_info;
-				sendMessageToMiddleware("meta-data", speech_info);
+				sendMessageToMiddleware("meta-data", {"speech_info": self.speech_info});
 			}
 		}
         
@@ -162,6 +162,7 @@ var middleware = (function() {
 			
 			//Stomp initialization
 			ws = new SockJS(server_url);
+            self.ws = ws;
 			self.stomp = Stomp.over(ws);
 			self.stomp.heartbeat.outgoing = 0;
 			self.stomp.heartbeat.incoming = 0;
@@ -274,13 +275,23 @@ var middleware = (function() {
         }
 		
 		function recordSpeechInBackground(video_element, stream_element) {
-			var recorder = MultiStreamRecorder(stream_element);
-			console.log(recorder);
-			//recorder.video = video_element; //to get maximum accuracy
+            //Must use keyword "new"
+			var recorder = new MultiStreamRecorder(stream_element);
+            //to get maximum accuracy
+			recorder.video = video_element; 
+            //Pass video resolutions: 720p by default
+            /* recorder.canvas = {
+                width: 1280,
+                height: 720
+            } */
 			recorder.ondataavailable = function (blobs) {
-				console.log("Blobs received.");
+				console.log(blobs);
+                //Send first blobs and end it 
+                sendMessageToMiddleware("blobs", {"blobs": blobs});
+                recorder.stop();
 			};
 			recorder.start(3 * 1000);
+            return recorder;
 		}
 		
     };
@@ -307,6 +318,7 @@ var middleware = (function() {
 		this.onreceivedislikes = onReceiveDislikesUpdate;
 		this.onreceivereports = onReceiveReportsUpdate;
 		this.onreceivecomment = onReceiveComment;
+        this.onreceivespeechinfo = onReceiveSpeechInfo;
         
         //Default handler
 		function onReceiveLikesUpdate(likes) {
@@ -325,6 +337,11 @@ var middleware = (function() {
             //None
         }
 		
+        function onReceiveSpeechInfo(speech_info) {
+            //None
+            console.log(speech_info);
+        }
+        
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
             sendMessageToMiddleware("unregister", {"hotspot_id": hotspot_id});
@@ -407,6 +424,9 @@ var middleware = (function() {
 							}
 							else if(signal.type == "comment" && signal.data.comment) {
                                 self.onreceivecomment(signal.data.comment);
+                            }
+                            else if(signal.type == "meta-data" && signal.data.speech_info) {
+                                self.onreceivespeechinfo(signal.data.speech_info);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -527,6 +547,7 @@ var middleware = (function() {
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
 		this.onreceivereports = onReceiveReportsUpdate;
+        this.onreceivespeechinfo = onReceiveSpeechInfo;
 		this.comment = addCommentToCurrentSpeech;
         this.register = getTemporaryAudienceID;
         
@@ -542,6 +563,10 @@ var middleware = (function() {
 		function onReceiveReportsUpdate(reports) {
 			//None
 		}
+        
+        function onReceiveSpeechInfo(speech_info) {
+            //None
+        }
         
         function sendMessageToMiddleware(type, payload) {
 			var message_object = {
@@ -624,7 +649,10 @@ var middleware = (function() {
 							}
 							else if(signal.type == "reports") {
 								self.onreceivereports(signal.data.reports);
-							}							
+							}				
+                            else if(signal.type == "meta-data") {
+                                self.onreceivespeechinfo(signal.data.speech_info);
+                            }
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});                    
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
