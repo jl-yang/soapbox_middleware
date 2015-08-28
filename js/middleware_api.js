@@ -211,7 +211,7 @@ var middleware = (function() {
 								self.onreceivereports(signal.data.reports);
 							}
                             else if(signal.type == "comment" && signal.data.comment) {
-                                self.onreceivecomment(signal.data.comment);
+                                self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -456,7 +456,7 @@ var middleware = (function() {
 								self.onreceivereports(signal.data.reports);
 							}
 							else if(signal.type == "comment" && signal.data.comment) {
-                                self.onreceivecomment(signal.data.comment);
+                                self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
                             }
                             else if(signal.type == "meta-data" && signal.data.speech_info) {
                                 self.onreceivespeechinfo(signal.data.speech_info);
@@ -629,9 +629,9 @@ var middleware = (function() {
 			sendMessageToMiddleware("report", {"audience_id": temp_id});
 		}
         
-        function addCommentToCurrentSpeech(comment) {
+        function addCommentToCurrentSpeech(username, comment) {
             //Comments should be just plain string
-            sendMessageToMiddleware("comment", {"comment": comment, "audience_id": temp_id});
+            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}, "audience_id": temp_id});
         }
         
         function getTemporaryAudienceID() {

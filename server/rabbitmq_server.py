@@ -315,7 +315,7 @@ class Middleware(object):
             elif type == "meta-data" and data["speech_info"] is not None:
                 #Save it locally and send it to all hotspots and audience once they are online
                 self.speech_info = data["speech_info"]
-                if ENABLE_TEST_HOTSPOT is True:
+                if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_ADS_URL)
             
         elif sender == "hotspot":
@@ -386,8 +386,8 @@ class Middleware(object):
             if type == "comment" and data["comment"] is not None:
                 #Print out the comment now
                 print "Comment: ", data["comment"]                
-                self.send_soapbox("comment", {"comment": data["comment"]})
-                self.send_hotspot("comment", {"comment": data["comment"]})
+                self.send_soapbox("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
+                self.send_hotspot("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
                 #Send speech info if there is any
                 if self.speech_info is not None:
                     self.send_audience("meta-data", {"speech_info": self.speech_info})

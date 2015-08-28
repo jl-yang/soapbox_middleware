@@ -5,15 +5,18 @@
 		<script src="../js/stomp.js"></script>		
 		<script src="../js/adapter.js"></script>
 		<script src="../js/MediaStreamRecorder.js"></script>
+        <script src="../js/RecordRTC.js"></script>
         <script src="../js/middleware_api.js"></script>
 		<title>RTCPeerConnection</title>
 
 	</head>	
     <body>
         <div id="container">
-            <video id="localVideo" autoplay muted></video>         			
+            <video id="localVideo" autoplay></video>         			
         </div>
-		
+		<div>
+            <input type="button" id="stop_btn" value="Stop recording"></input>
+        </div>
 		<script>  
             
 			var localVideo = document.getElementById('localVideo');
@@ -48,9 +51,27 @@
                     
                     soapbox.register();
                     
+                    var recordRTC = RecordRTC(stream, {
+                        type: 'video'
+                    });
                     
+                    window.recordRTC = recordRTC;
                     
-					soapbox.record(self.localVideo, localStream);
+                    recordRTC.startRecording();                    
+                    
+                    var stop_btn = document.getElementById("stop_btn");
+                    stop_btn.onclick = function() {
+                        recordRTC.stopRecording(function (url) {
+                            console.log(url);
+                            
+                            var blob = recordRTC.getBlob();
+                            recordRTC.getDataURL(function(dataURL) {
+                                console.log(dataURL);
+                            });
+                        });
+                    }
+                    
+					//soapbox.record(self.localVideo, localStream);
 					
 				});	
                      

@@ -37,7 +37,7 @@ soapbox.connect(function () {
     soapbox.onreceivereports = function (reports) {};
     
     //Register comment update callback
-    soapbox.onreceivecomment = function (comment) {};
+    soapbox.onreceivecomment = function (username, comment) {};
     
 	//Start speech transmission
 	soapbox.start(local_stream);
@@ -97,7 +97,7 @@ audience.connect(function () {
     }
 
     //You can comment here 
-    audience.comment("I want to make a comment now!");
+    audience.comment("user2015", "I want to make a comment now!");
 });
 ```
 
