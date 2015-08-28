@@ -12,6 +12,7 @@ class Middleware(object):
     #URL
     HOTSPOT_WEBSITE_URL = 'http://85.23.168.158'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
+    HOTSPOT_ADS_URL = 'http://85.23.168.158'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -23,38 +24,8 @@ class Middleware(object):
     HOTSPOT_FULLSCREEN_OFF_URL = 'http://vm.ubi-hotspot-15.ubioulu.fi/menu/soapClient.php' \
     + '?func=processEvent' \
     + '&param=%3Cevent%20type=%22changeState%22%20name=%22fullscreenoff%22%20session=%22ubi-hotspot-15%22%3E%3C/event>'
-    JSON_FULLSCREEN_ON = {
-        "event": {
-            "id": "123",
-            "operation":[{
-                "parameter":[
-                    {
-                        "name":"fullscreenapp",
-                        "type":"id"
-                    },
-                    {
-                        "name": HOTSPOT_WEBSITE_URL,
-                        "type":"resource"
-                    }
-                ],
-                "type": "setContent"
-            }],
-            "session":"ubi-hotspot-15",
-            "name":"fullscreenon",
-            "type":"changeState",
-            "endpoint":""
-        }
-    }
-    JSON_FULLSCREEN_OFF = {
-        "event": {
-            "id":"123",
-            "session":"ubi-hotspot-15",
-            "name":"fullscreenoff",
-            "type":"changeState",
-            "endpoint":""
-        }
-    }
-        
+    
+    
     # Soapbox project exchange    
     PROJECT_EXCHANGE = "soapbox"
     PROJECT_USRNAME = "middleware"
@@ -76,6 +47,41 @@ class Middleware(object):
     TEST_HOTSPOT_PASSWORD = '5492pn0GE884E5Ma6nO44KO0N7875W4v'
     #This amount relates to how many offers the soapbox needs to provide at the beginning, for possible transmission
     ALLOCATE_HOTSPOT_AMOUNT = 1
+    
+    def full_screen_on(self, url):
+        return {
+            "event": {
+                "id": "123",
+                "operation":[{
+                    "parameter":[
+                        {
+                            "name":"fullscreenapp",
+                            "type":"id"
+                        },
+                        {
+                            "name": url,
+                            "type":"resource"
+                        }
+                    ],
+                    "type": "setContent"
+                }],
+                "session":"ubi-hotspot-15",
+                "name":"fullscreenon",
+                "type":"changeState",
+                "endpoint":""
+            }
+        }
+    
+    def full_screen_off(self):
+        return {
+            "event": {
+                "id":"123",
+                "session":"ubi-hotspot-15",
+                "name":"fullscreenoff",
+                "type":"changeState",
+                "endpoint":""
+            }
+        }
     
     def __init__(self):
     
@@ -206,16 +212,16 @@ class Middleware(object):
         #This should be controlled by a timer which takes the time value from speech info, and when it countdowns to zero, this method will be called 
         pass
         
-    def start_broadcast(self):
+    def start_broadcast(self, url):
         self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
                                     routing_key=self.TEST_HOTSPOT_ROUTING_KEY,
-                                    body=json.dumps(self.JSON_FULLSCREEN_ON))
+                                    body=json.dumps(self.full_screen_on(url)))
         print "[*] Message sent about starting broadcasting in hotspot"
     
     def stop_broadcast(self):
         self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE,
                                     routing_key=self.TEST_HOTSPOT_ROUTING_KEY,
-                                    body=json.dumps(self.JSON_FULLSCREEN_OFF))
+                                    body=json.dumps(self.full_screen_off()))
         print "[*] Message sent about stopping broadcasting in hotspot"
         
     def _print_formated_message(self, msgObj, is_receiving=True):
@@ -284,7 +290,8 @@ class Middleware(object):
             elif type == "start_broadcast":
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
-                    self.start_broadcast()
+                    self.stop_broadcast()
+                    self.start_broadcast(self.HOTSPOT_WEBSITE_URL)
             
             #Stop speech transmission in hotspot website according to message from soapbox website
             elif type == "stop_broadcast":    
@@ -308,6 +315,8 @@ class Middleware(object):
             elif type == "meta-data" and data["speech_info"] is not None:
                 #Save it locally and send it to all hotspots and audience once they are online
                 self.speech_info = data["speech_info"]
+                if ENABLE_TEST_HOTSPOT is True:
+                    self.start_broadcast(self.HOTSPOT_ADS_URL)
             
         elif sender == "hotspot":
             if type == "register" and data["name"] is not None:      
@@ -401,7 +410,7 @@ class Middleware(object):
         self._consumer_tag = self._channel.basic_consume(self.on_test_hotspot_message, 
                                                         queue=self.TEST_HOTSPOT_QUEUE_NAME)
         if self.ENABLE_TEST_HOTSPOT is True:
-            self.send_test_hotspot(self.JSON_FULLSCREEN_OFF)
+            self.send_test_hotspot(self.full_screen_off())
             
     def send_test_hotspot(self, msg):           
         self._channel.basic_publish(exchange=self.TEST_HOTSPOT_EXCHANGE, 

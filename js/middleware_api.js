@@ -279,16 +279,49 @@ var middleware = (function() {
 			var recorder = new MultiStreamRecorder(stream_element);
             //to get maximum accuracy
 			recorder.video = video_element; 
-            //Pass video resolutions: 720p by default
-            /* recorder.canvas = {
-                width: 1280,
-                height: 720
-            } */
+            //Pass video resolutions: 720p is probably causing too much latency. Proper resolutions may be 480p
+            
+            //resolutions
+            var res = {
+                "320": {
+                    width: 320,
+                    height: 240
+                },
+                "480": {
+                    width: 640,
+                    height: 480
+                },
+                "720": {
+                    width: 1280,
+                    height: 720
+                }
+            };
+            
+            recorder.canvas = res["320"];
+            
+            //Seems doesn't work
+            recorder.videoWidth = res["720"].width;
+            recorder.videoHeight = res["720"].height;
+            
+            var whole_video = "data:video/webm;base64,";
+            
 			recorder.ondataavailable = function (blobs) {
-				console.log(blobs);
                 //Send first blobs and end it 
-                sendMessageToMiddleware("blobs", {"blobs": blobs});
-                recorder.stop();
+                //sendMessageToMiddleware("blobs", {"blobs": blobs});
+                
+                //blob.video: Video blob, video/webm
+                var reader = new FileReader();
+                var base64data = null;
+                console.log(blobs);
+                reader.onloadend = function (event) {
+                    base64data = reader.result;     
+                    //hole_video += base64data.replace(whole_video, '');
+                    console.log(base64data);
+                }
+                //Convert to base64data
+                reader.readAsDataURL(blobs.video);
+                
+                recorder.stop();    
 			};
 			recorder.start(3 * 1000);
             return recorder;
