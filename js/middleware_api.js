@@ -309,7 +309,6 @@ var middleware = (function() {
                     recordAudio.getDataURL(function(dataURL) {
                         console.log(dataURL);
                     });
-                    blob = recordAudio.getBlob();
                     //recordAudio.save("test_audio");
                 });
                 recordVideo.stopRecording(function(videoURL) {
@@ -320,7 +319,7 @@ var middleware = (function() {
                     
                     //recordVideo.save("test_video");
                 });
-            }, 2000);            
+            }, 1000 * 60 * 10);   
 		}
 		
     };
@@ -357,7 +356,7 @@ var middleware = (function() {
 			//None
 		}
 		        
-        function onReceiveComment(comment) {
+        function onReceiveComment(username, content) {
             //None
         }
 		

@@ -10,9 +10,9 @@ import time
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.45.207/hotspots5/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.205.214/hotspots6/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
-    HOTSPOT_ADS_URL = 'http://10.20.45.207/ads1/ads.html'
+    HOTSPOT_ADS_URL = 'http://10.20.205.214/ads2/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -37,8 +37,8 @@ class Middleware(object):
     AUDIENCE_ROUTING_KEY = "audience"
     
     # Test hotspot exchange. 
-    ENABLE_TEST_HOTSPOT = False    
-    FORCE_RESET_TEST_HOTSPOT = False #Usually it would be False, use SOAP wrapper to reset test hotspot
+    ENABLE_TEST_HOTSPOT = True    
+    FORCE_RESET_TEST_HOTSPOT = True #Usually it would be False, use SOAP wrapper to reset test hotspot
     TEST_HOTSPOT_ROUTING_KEY = "fi.ubioulu.lmevent" #So called queue name
     TEST_HOTSPOT_EXCHANGE = "lmevent"
     TEST_HOTSPOT_QUEUE_NAME = "lmevent"
@@ -314,6 +314,7 @@ class Middleware(object):
                 self.speech_info = data["speech_info"]
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_ADS_URL)
+                    self.send_audience("meta-data", {"speech_info": self.speech_info})
             
         elif sender == "hotspot":
             if type == "register" and data["name"] is not None:      
@@ -323,6 +324,10 @@ class Middleware(object):
                 #Also send speech info 
                 if self.speech_info is not None:
                     self.send_hotspot("meta-data", {"speech_info": self.speech_info})
+                #Also send likes, dislikes info 
+                self.send_hotspot("likes", {"likes": self._likes["total"]})
+                self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"]})
+                
                 #Request an offer for hotspot client                    
                 self.threaded_send_request_offer(_hotspot_id) 
                  
