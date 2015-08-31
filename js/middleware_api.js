@@ -273,14 +273,8 @@ var middleware = (function() {
                 self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
             }
         }
-		
-		function recordSpeechInBackground(video_element, stream_element) {
-            //Must use keyword "new"
-			var recorder = new MultiStreamRecorder(stream_element);
-            //to get maximum accuracy
-			recorder.video = video_element; 
-            //Pass video resolutions: 720p is probably causing too much latency. Proper resolutions may be 480p
-            
+        
+        function recordSpeechInBackground(stream_element) {
             //resolutions
             var res = {
                 "320": {
@@ -297,34 +291,36 @@ var middleware = (function() {
                 }
             };
             
-            recorder.canvas = res["320"];
+            var recordVideo = RecordRTC(stream_element, {
+                type: 'video',
+                autoWriteToDisk: true
+            });
             
-            //Seems doesn't work
-            recorder.videoWidth = res["720"].width;
-            recorder.videoHeight = res["720"].height;
-            
-            var whole_video = "data:video/webm;base64,";
-            
-			recorder.ondataavailable = function (blobs) {
-                //Send first blobs and end it 
-                //sendMessageToMiddleware("blobs", {"blobs": blobs});
-                
-                //blob.video: Video blob, video/webm
-                var reader = new FileReader();
-                var base64data = null;
-                console.log(blobs);
-                reader.onloadend = function (event) {
-                    base64data = reader.result;     
-                    //hole_video += base64data.replace(whole_video, '');
-                    console.log(base64data);
+            var recordAudio = RecordRTC(stream_element, {
+                onAudioProcessStarted: function() {
+                    recordVideo.startRecording();
                 }
-                //Convert to base64data
-                reader.readAsDataURL(blobs.video);
-                
-                recorder.stop();    
-			};
-			recorder.start(3 * 1000);
-            return recorder;
+            });
+
+            recordAudio.startRecording();
+            
+            setTimeout(function() {
+                recordAudio.stopRecording(function(audioURL) {
+                    recordAudio.getDataURL(function(dataURL) {
+                        console.log(dataURL);
+                    });
+                    blob = recordAudio.getBlob();
+                    //recordAudio.save("test_audio");
+                });
+                recordVideo.stopRecording(function(videoURL) {
+                    recordVideo.getDataURL(function(dataURL) {
+                        console.log(dataURL);
+                    });
+                    
+                    
+                    //recordVideo.save("test_video");
+                });
+            }, 2000);            
 		}
 		
     };
@@ -349,7 +345,6 @@ var middleware = (function() {
 		this.report = reportInappropriateContent;
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
-		this.onreceivereports = onReceiveReportsUpdate;
 		this.onreceivecomment = onReceiveComment;
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         
@@ -361,11 +356,7 @@ var middleware = (function() {
 		function onReceiveDislikesUpdate(dislikes) {
 			//None
 		}
-		
-		function onReceiveReportsUpdate(reports) {
-			//None
-		}
-        
+		        
         function onReceiveComment(comment) {
             //None
         }
@@ -451,9 +442,6 @@ var middleware = (function() {
 							}
 							else if(signal.type == "dislikes" && signal.data.dislikes) {
 								self.onreceivedislikes(signal.data.dislikes);
-							}
-							else if(signal.type == "reports" && signal.data.reports) {
-								self.onreceivereports(signal.data.reports);
 							}
 							else if(signal.type == "comment" && signal.data.comment) {
                                 self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
@@ -579,10 +567,10 @@ var middleware = (function() {
 		this.report = reportInappropriateContent;
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
-		this.onreceivereports = onReceiveReportsUpdate;
         this.onreceivespeechinfo = onReceiveSpeechInfo;
 		this.comment = addCommentToCurrentSpeech;
-        this.register = getTemporaryAudienceID;
+        this.submit = submitSpeechInfo;
+        this.get_speech_info = getCurrentSpeechInfo;
         
         //Default handler
 		function onReceiveLikesUpdate(likes) {
@@ -592,13 +580,14 @@ var middleware = (function() {
 		function onReceiveDislikesUpdate(dislikes) {
 			//None
 		}
-		
-		function onReceiveReportsUpdate(reports) {
-			//None
-		}
-        
+		        
         function onReceiveSpeechInfo(speech_info) {
             //None
+        }
+        
+        function getCurrentSpeechInfo() {
+            //This will cause middleware to send "meta-data" speech info to audience
+            sendMessageToMiddleware("current_speech_info");
         }
         
         function sendMessageToMiddleware(type, payload) {
@@ -616,31 +605,26 @@ var middleware = (function() {
 				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
 			}
 		}
+        function submitSpeechInfo(speech_info) {
+            sendMessageToMiddleware("meta-data", {"speech_info": speech_info});
+        }
         
         function addLike() {
-			sendMessageToMiddleware("like", {"audience_id": temp_id});
+			sendMessageToMiddleware("like");
 		}
 		
 		function addDislike() {
-			sendMessageToMiddleware("dislike", {"audience_id": temp_id});
+			sendMessageToMiddleware("dislike");
 		}
 		
 		function reportInappropriateContent() {
-			sendMessageToMiddleware("report", {"audience_id": temp_id});
+			sendMessageToMiddleware("report");
 		}
         
         function addCommentToCurrentSpeech(username, comment) {
             //Comments should be just plain string
-            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}, "audience_id": temp_id});
+            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}});
         }
-        
-        function getTemporaryAudienceID() {
-            sendMessageToMiddleware("register", null);
-        }
-        
-        window.onbeforeunload = function(event) {
-            sendMessageToMiddleware("unregister", {"audience_id": temp_id});
-        };
         
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
@@ -671,18 +655,13 @@ var middleware = (function() {
 							{	
 								return;
 							}
-                            if (signal.type == "register" && typeof signal.data.audience_id !== "undefined") {
-                                temp_id = signal.data.audience_id;
-                            }
-							else if(signal.type == "likes") {
+                            
+							if(signal.type == "likes") {
 								self.onreceivelikes(signal.data.likes);
 							}
 							else if(signal.type == "dislikes") {
 								self.onreceivedislikes(signal.data.dislikes);
-							}
-							else if(signal.type == "reports") {
-								self.onreceivereports(signal.data.reports);
-							}				
+							}	
                             else if(signal.type == "meta-data") {
                                 self.onreceivespeechinfo(signal.data.speech_info);
                             }

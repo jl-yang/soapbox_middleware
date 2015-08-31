@@ -33,9 +33,6 @@ soapbox.connect(function () {
     //Register dislikes update callback
     soapbox.onreceivedislikes = function (dislikes) {};
     
-    //Register reports update callback    
-    soapbox.onreceivereports = function (reports) {};
-    
     //Register comment update callback
     soapbox.onreceivecomment = function (username, comment) {};
     

@@ -12,10 +12,7 @@
 	</head>	
     <body>
         <div id="container">
-            <video id="localVideo" autoplay></video>         			
-        </div>
-		<div>
-            <input type="button" id="stop_btn" value="Stop recording"></input>
+            <video id="localVideo" autoplay muted></video>         			
         </div>
 		<script>  
             
@@ -51,37 +48,14 @@
                     
                     soapbox.register();
                     
-                    var recordRTC = RecordRTC(stream, {
-                        type: 'video'
-                    });
-                    
-                    window.recordRTC = recordRTC;
-                    
-                    recordRTC.startRecording();                    
-                    
-                    var stop_btn = document.getElementById("stop_btn");
-                    stop_btn.onclick = function() {
-                        recordRTC.stopRecording(function (url) {
-                            console.log(url);
-                            
-                            var blob = recordRTC.getBlob();
-                            recordRTC.getDataURL(function(dataURL) {
-                                console.log(dataURL);
-                            });
-                        });
-                    }
-                    
-					//soapbox.record(self.localVideo, localStream);
+                    //soapbox.record(localStream);
 					
 				});	
-                     
-		
-            //Try to tell signaling server that it is about to close
-            window.onbeforeunload = function(event) {
-                soapbox.stop();
-            };
-            
-				
+                
+                //Try to tell signaling server that it is about to close
+                window.onbeforeunload = function(event) {
+                    soapbox.stop();
+                };
 			}
 			
 		</script>
