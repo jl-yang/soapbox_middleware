@@ -37,8 +37,8 @@ class Middleware(object):
     AUDIENCE_ROUTING_KEY = "audience"
     
     # Test hotspot exchange. 
-    ENABLE_TEST_HOTSPOT = True    
-    FORCE_RESET_TEST_HOTSPOT = True #Usually it would be False, use SOAP wrapper to reset test hotspot
+    ENABLE_TEST_HOTSPOT = False    
+    FORCE_RESET_TEST_HOTSPOT = False #Usually it would be False, use SOAP wrapper to reset test hotspot
     TEST_HOTSPOT_ROUTING_KEY = "fi.ubioulu.lmevent" #So called queue name
     TEST_HOTSPOT_EXCHANGE = "lmevent"
     TEST_HOTSPOT_QUEUE_NAME = "lmevent"
@@ -277,14 +277,20 @@ class Middleware(object):
                 self.IS_SOAPBOX_READY = True
                 for hotspot in self.hotspots:
                     self.threaded_send_request_offer(hotspot["id"])
-                    
+                #Send likes and dislikes updates in case soapbox is trying to reconnect
+                self.send_soapbox("likes", {"likes": self._likes["total"]})
+                self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
+                self.send_soapbox("reports", {"reports": self._reports["total"]})
+                
             elif type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
             elif type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
                 self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
-            elif type == "start_broadcast":
+            elif type == "start_broadcast":                
+                #Just a message for all audience
+                self.send_audience("start_broadcast", None)
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.stop_broadcast()
@@ -292,6 +298,8 @@ class Middleware(object):
             
             #Stop speech transmission in hotspot website according to message from soapbox website
             elif type == "stop_broadcast":    
+                #Just a message for all audience
+                self.send_audience("stop_broadcast", None)
                 #Send stop message to all hotspot
                 self.send_hotspot("stop_broadcast", None)                
                 self.soapbox = {}
@@ -394,11 +402,11 @@ class Middleware(object):
                 self.send_soapbox("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
                 self.send_hotspot("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
                 
-            elif type == "current_speech_info":
+            elif type == "current_speech":
                 #Send speech info if there is any
                 if self.speech_info is not None:
                     self.send_audience("meta-data", {"speech_info": self.speech_info})
-           
+                
             elif type == "like":
                 self._likes["total"] += 1
                 print "[*] Likes updated: ", self._likes["total"]
@@ -416,6 +424,14 @@ class Middleware(object):
             elif type == "report":
                 self._reports["total"] += 1
                 print "[*] Reports updated: ", self._reports["total"]
+            
+            elif type == "meta-data" and data["speech_info"] is not None:
+                #To-do
+                self.speech_info = data["speech_info"]
+                self.send_audience("meta-data", {"speech_info": self.speech_info})
+                #Make hotspot changing to full screen ads mode
+                if self.ENABLE_TEST_HOTSPOT is True:
+                    self.start_broadcast(self.HOTSPOT_ADS_URL)
                 
     #Test hotspot    
     def on_exchange_declared(self, frame):

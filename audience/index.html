@@ -11,9 +11,20 @@
 			//Example usage
 			
 			var audience = new Audience();
+            var ENABLE_COMMENT = false;
             //Should only connect once
 			audience.connect(function() {
                 //You can comment here
+                
+                
+                
+            }, null, function (msg) {
+                if(msg.type == "start_broadcast") {
+                    ENABLE_COMMENT = true;
+                }
+                else if(msg.type == "stop_broadcast") {
+                    ENABLE_COMMENT = false;
+                }
             });
 			
             //It will fail if connection has not been established yet

@@ -586,7 +586,7 @@ var middleware = (function() {
         
         function getCurrentSpeechInfo() {
             //This will cause middleware to send "meta-data" speech info to audience
-            sendMessageToMiddleware("current_speech_info");
+            sendMessageToMiddleware("current_speech");
         }
         
         function sendMessageToMiddleware(type, payload) {

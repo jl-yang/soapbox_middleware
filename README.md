@@ -36,6 +36,9 @@ soapbox.connect(function () {
     //Register comment update callback
     soapbox.onreceivecomment = function (username, comment) {};
     
+    //Register reports update callback
+    soapbox.onreceivereports = function (reports) {};
+    
 	//Start speech transmission
 	soapbox.start(local_stream);
     
@@ -91,7 +94,10 @@ audience.connect(function () {
     //Set up speech info callback, speech_info is a JSON object
     audience.onreceivespeechinfo = function (speech_info) {
         console.log(speech_info);
-    }
+    }    
+    
+    //Request for initial update of speech info
+    audience.get_speech_info();
 
     //You can comment here 
     audience.comment("user2015", "I want to make a comment now!");
