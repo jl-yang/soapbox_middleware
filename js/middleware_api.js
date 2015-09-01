@@ -112,6 +112,7 @@ var middleware = (function() {
 		this.update = submitSpeechInfo;
         this.register = registerInMiddleware; 
 		this.start = startBroadcast;
+        //This method should be explicitly invoked by the soapbox website
 		this.stop = stopBroadcast;
 		this.send = sendMessageToMiddleware;
 		this.onreceivelikes = onReceiveLikesUpdate;
@@ -274,53 +275,97 @@ var middleware = (function() {
             }
         }
         
-        function recordSpeechInBackground(stream_element) {
+        function recordSpeechInBackground(video_element, stream_element) {
             //resolutions
-            var res = {
-                "320": {
-                    width: 320,
-                    height: 240
-                },
-                "480": {
-                    width: 640,
-                    height: 480
-                },
-                "720": {
-                    width: 1280,
-                    height: 720
-                }
+            var res = [];
+            res["auto"] = {
+                width: 0,
+                height: 0
+            }
+            res["320"] = {
+                width: 320,
+                height: 240
+            };
+            res["480"] = {
+                width: 640,
+                height: 480
+            };
+            res["720"] = {
+                width: 1280,
+                height: 720
             };
             
-            var recordVideo = RecordRTC(stream_element, {
-                type: 'video',
-                autoWriteToDisk: true
-            });
+            var recorder = new MultiStreamRecorder(stream_element);
+            var videoBlobs = [];
+            var audioBlobs = [];
+            var videoType = "video/webm";
+            var audioTypee = "audio/wav";
             
-            var recordAudio = RecordRTC(stream_element, {
-                onAudioProcessStarted: function() {
-                    recordVideo.startRecording();
-                }
-            });
-
-            recordAudio.startRecording();
+            recorder.video = video_element;
+            
+            recorder.canvas = res["auto"];
+            
+            recorder.ondataavailable = function(blobs) {
+                videoBlobs.push(blobs.video);
+                audioBlobs.push(blobs.audio);
+                console.log("a blob now");
+            };
+            recorder.start(2000);
             
             setTimeout(function() {
-                recordAudio.stopRecording(function(audioURL) {
-                    recordAudio.getDataURL(function(dataURL) {
-                        console.log(dataURL);
-                    });
-                    //recordAudio.save("test_audio");
-                });
-                recordVideo.stopRecording(function(videoURL) {
-                    recordVideo.getDataURL(function(dataURL) {
-                        console.log(dataURL);
-                    });
+                recorder.stop();
+                
+                //Concatenate blobs
+                ConcatenateBlobs(videoBlobs, videoType, function (result) {
+                    //var reader = new FileReader();
+                    //reader.onload = function(event) {
+                        
+                    //};
+                    //reader.readAsDataURL(result);
+                    //console.log(bytesToSize(result.size));
                     
-                    
-                    //recordVideo.save("test_video");
+                    var to_write_blob = result;
+                    //Using sandbox file system
+                    //http://www.html5rocks.com/en/tutorials/file/filesystem/
+                    //Maybe using github pages to host the recorded streams
+                    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
+                    window.requestFileSystem(window.TEMPORARY, 1024 * 1024 * 100, function(fs) {
+                        fs.root.getFile('test_video2.webm', {create: true, exclusive: true}, 
+                            function (fileEntry){
+                                fileEntry.createWriter(function(fileWriter) {
+                                    fileWriter.onwriteend = function(e){
+                                        console.log("Write completed");
+                                    };
+                                    fileWriter.write(to_write_blob);
+                            }, function(e) {console.log(e);})
+                        },function(e) {console.log(e);});
+                    }, function() {
+                        console.log("error");
+                    });
+                        
                 });
-            }, 1000 * 60 * 10);   
+                
+                ConcatenateBlobs(audioBlobs, audioTypee, function (result) {
+                    var reader = new FileReader();
+                    reader.onload = function(event) {
+                        recorder.a = event.target.result;
+                    };
+                    reader.readAsDataURL(result);
+                    console.log(bytesToSize(result.size));
+                });
+            }, 1000 * 60 * 10);
+            
+            return recorder;
 		}
+        
+        // below function via: http://goo.gl/B3ae8c
+        function bytesToSize(bytes) {
+            var k = 1000;
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes === 0) return '0 Bytes';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(k)), 10);
+            return (bytes / Math.pow(k, i)).toPrecision(3) + ' ' + sizes[i];
+        }
 		
     };
     
@@ -554,6 +599,7 @@ var middleware = (function() {
 	
 	
 	//API for Audience who will comment on current speech 
+    //Currently it is also used by ads website
 	window.Audience = function () {
 		var self = this;
 		var ws, stomp, send_queue, temp_id;
@@ -586,7 +632,7 @@ var middleware = (function() {
         
         function getCurrentSpeechInfo() {
             //This will cause middleware to send "meta-data" speech info to audience
-            sendMessageToMiddleware("current_speech");
+            sendMessageToMiddleware("current_speech_info");
         }
         
         function sendMessageToMiddleware(type, payload) {
@@ -604,6 +650,7 @@ var middleware = (function() {
 				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
 			}
 		}
+        
         function submitSpeechInfo(speech_info) {
             sendMessageToMiddleware("meta-data", {"speech_info": speech_info});
         }

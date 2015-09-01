@@ -5,14 +5,14 @@
 		<script src="../js/stomp.js"></script>		
 		<script src="../js/adapter.js"></script>
 		<script src="../js/MediaStreamRecorder.js"></script>
-        <script src="../js/RecordRTC.js"></script>
+        <script src="../js/ConcatenateBlobs.js"></script> 
         <script src="../js/middleware_api.js"></script>
 		<title>RTCPeerConnection</title>
 
 	</head>	
     <body>
         <div id="container">
-            <video id="localVideo" autoplay muted></video>         			
+            <video id="localVideo" autoplay></video>         			
         </div>
 		<script>  
             
@@ -36,7 +36,7 @@
 			function gotStream(stream) {   
 				console.log('Received local stream');
 				localStream = stream;
-				self.localVideo.src = URL.createObjectURL(stream); 
+				localVideo.src = URL.createObjectURL(stream); 
                 soapbox = new Soapbox();
 				stomp = soapbox.connect(function () {
 					soapbox.submit({"name": "Jilin"});
@@ -48,7 +48,9 @@
                     
                     soapbox.register();
                     
-                    soapbox.record(localStream);
+                    
+                    
+                    self.rec = soapbox.record(localVideo, localStream);
 					
 				});	
                 

@@ -10,9 +10,9 @@ import time
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.205.214/hotspots6/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.215.38/hotspots6/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
-    HOTSPOT_ADS_URL = 'http://10.20.205.214/ads2/ads.html'
+    HOTSPOT_ADS_URL = 'http://10.20.215.38/ads2/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -37,8 +37,8 @@ class Middleware(object):
     AUDIENCE_ROUTING_KEY = "audience"
     
     # Test hotspot exchange. 
-    ENABLE_TEST_HOTSPOT = False    
-    FORCE_RESET_TEST_HOTSPOT = False #Usually it would be False, use SOAP wrapper to reset test hotspot
+    ENABLE_TEST_HOTSPOT = True    
+    FORCE_RESET_TEST_HOTSPOT = True #Usually it would be False, use SOAP wrapper to reset test hotspot
     TEST_HOTSPOT_ROUTING_KEY = "fi.ubioulu.lmevent" #So called queue name
     TEST_HOTSPOT_EXCHANGE = "lmevent"
     TEST_HOTSPOT_QUEUE_NAME = "lmevent"
@@ -104,6 +104,7 @@ class Middleware(object):
         self.IS_SOAPBOX_READY = True
         self.request_offer_threads = []
         self.speech_info = None
+        self.comments = []
         
         #Hotspot clients info
         self.hotspots = []    
@@ -229,7 +230,7 @@ class Middleware(object):
         sender = msgObj.get("sender")
         receiver = msgObj.get("receiver")
         data = msgObj.get("data")
-        if type != "ice-candidate":
+        if type != "ice-candidate" and type != "current_speech" and type != "meta-data":
             if is_receiving is True:
                 print " [x] Message received.      Type:", \
                     "{0: <30}".format(type), \
@@ -275,6 +276,7 @@ class Middleware(object):
                 self.soapbox["id"] = _uuid                    
                 #When soapbox is down and everyone is waiting, the soapbox should give enough offers once reconnects
                 self.IS_SOAPBOX_READY = True
+                print "Current hotspots: ", self.hotspots
                 for hotspot in self.hotspots:
                     self.threaded_send_request_offer(hotspot["id"])
                 #Send likes and dislikes updates in case soapbox is trying to reconnect
@@ -310,6 +312,8 @@ class Middleware(object):
                 self._dislikes["total"] = 0
                 self._reports["reports"] = {}
                 self._reports["total"] = 0
+                #Save comments and clear them
+                self.comments = []
                 #Should also redirect all hotspots back from full screen state
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.stop_broadcast()
@@ -402,7 +406,7 @@ class Middleware(object):
                 self.send_soapbox("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
                 self.send_hotspot("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
                 
-            elif type == "current_speech":
+            elif type == "current_speech_info":
                 #Send speech info if there is any
                 if self.speech_info is not None:
                     self.send_audience("meta-data", {"speech_info": self.speech_info})

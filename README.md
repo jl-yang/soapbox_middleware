@@ -199,6 +199,8 @@ Remember to use lock in threaded function, as it could cause serious potential p
 http://w3c.github.io/webrtc-pc/#rtciceconnectionstate-enum
 https://groups.google.com/forum/#!topic/discuss-webrtc/vINLJSSOxtE
 
+Problem: MediaStreamRecorder.js has TypeError: videoElement.start is not a function. Thus we cannot use the stream recording API.
+Check whether your html adds RecordRTC.js and MediaStreamRecorder.js at the same time. It seems they are conflicted and should only be added either one.
 
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.

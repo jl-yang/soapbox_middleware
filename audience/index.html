@@ -16,6 +16,8 @@
 			audience.connect(function() {
                 //You can comment here
                 
+			
+                audience.get_speech_info();
                 
                 
             }, null, function (msg) {
@@ -26,7 +28,7 @@
                     ENABLE_COMMENT = false;
                 }
             });
-			
+            
             //It will fail if connection has not been established yet
             //audience.comment("I want to make a comment now!");
 			
