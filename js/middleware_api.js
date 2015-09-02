@@ -310,7 +310,7 @@ var middleware = (function() {
                 audioBlobs.push(blobs.audio);
                 console.log("a blob now");
             };
-            recorder.start(2000);
+            recorder.start(500);
             
             setTimeout(function() {
                 recorder.stop();
@@ -353,7 +353,7 @@ var middleware = (function() {
                     reader.readAsDataURL(result);
                     console.log(bytesToSize(result.size));
                 });
-            }, 1000 * 60 * 10);
+            }, 1000 * 3);
             
             return recorder;
 		}
@@ -630,11 +630,6 @@ var middleware = (function() {
             //None
         }
         
-        function getCurrentSpeechInfo() {
-            //This will cause middleware to send "meta-data" speech info to audience
-            sendMessageToMiddleware("current_speech_info");
-        }
-        
         function sendMessageToMiddleware(type, payload) {
 			var message_object = {
 				'sender': self.itself,
@@ -649,7 +644,12 @@ var middleware = (function() {
 			} else {
 				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
 			}
-		}
+		}      
+        
+        function getCurrentSpeechInfo() {
+            //This will cause middleware to send "meta-data" speech info to audience
+            sendMessageToMiddleware("current_speech_info");
+        }
         
         function submitSpeechInfo(speech_info) {
             sendMessageToMiddleware("meta-data", {"speech_info": speech_info});

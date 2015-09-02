@@ -37,8 +37,8 @@ class Middleware(object):
     AUDIENCE_ROUTING_KEY = "audience"
     
     # Test hotspot exchange. 
-    ENABLE_TEST_HOTSPOT = True    
-    FORCE_RESET_TEST_HOTSPOT = True #Usually it would be False, use SOAP wrapper to reset test hotspot
+    ENABLE_TEST_HOTSPOT = False    
+    FORCE_RESET_TEST_HOTSPOT = False #Usually it would be False, use SOAP wrapper to reset test hotspot
     TEST_HOTSPOT_ROUTING_KEY = "fi.ubioulu.lmevent" #So called queue name
     TEST_HOTSPOT_EXCHANGE = "lmevent"
     TEST_HOTSPOT_QUEUE_NAME = "lmevent"
@@ -230,7 +230,7 @@ class Middleware(object):
         sender = msgObj.get("sender")
         receiver = msgObj.get("receiver")
         data = msgObj.get("data")
-        if type != "ice-candidate" and type != "current_speech" and type != "meta-data":
+        if type != "ice-candidate":
             if is_receiving is True:
                 print " [x] Message received.      Type:", \
                     "{0: <30}".format(type), \
@@ -335,10 +335,12 @@ class Middleware(object):
                 self.send_hotspot("register", {"hotspot_id": _hotspot_id})
                 #Also send speech info 
                 if self.speech_info is not None:
-                    self.send_hotspot("meta-data", {"speech_info": self.speech_info})
+                    self.send_hotspot("meta-data", {"speech_info": self.speech_info, "hotspot_id": _hotspot_id})
                 #Also send likes, dislikes info 
-                self.send_hotspot("likes", {"likes": self._likes["total"]})
-                self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"]})
+                self.send_hotspot("likes", {"likes": self._likes["total"], "hotspot_id": _hotspot_id})
+                self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"], "hotspot_id": _hotspot_id})
+                for comment in self.comments:
+                    self.send_hotspot("comment", {"comment": {"username": comment["username"], "content": comment["content"]}, "hotspot_id": _hotspot_id})
                 
                 #Request an offer for hotspot client                    
                 self.threaded_send_request_offer(_hotspot_id) 
@@ -402,14 +404,20 @@ class Middleware(object):
         elif sender == "audience":                
             if type == "comment" and data["comment"] is not None:
                 #Print out the comment now
-                print "Comment: ", data["comment"]                
-                self.send_soapbox("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
-                self.send_hotspot("comment", {"comment": {"username": data["comment"]["username"], "content": data["comment"]["content"]}})
+                print "Comment: ", data["comment"]  
+                _username = data["comment"]["username"]
+                _content = data["comment"]["content"]
+                #Add comment to list
+                self.comments.append({"username": _username, "content": _content})
+                self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
+                self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
                 
             elif type == "current_speech_info":
                 #Send speech info if there is any
                 if self.speech_info is not None:
                     self.send_audience("meta-data", {"speech_info": self.speech_info})
+                    #Just to confirm that broadcast has been started, so audience can comment now
+                    self.send_audience("start_broadcast", None)
                 
             elif type == "like":
                 self._likes["total"] += 1
