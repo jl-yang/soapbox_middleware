@@ -37,7 +37,7 @@
         function concatenateBuffers() {
             var byteLength = 0;
             buffers.forEach(function(buffer) {
-                byteLength += buffer.byteLength;
+                byteLength += buffer.size;
             });
             
             var tmp = new Uint16Array(byteLength);

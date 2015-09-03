@@ -308,29 +308,31 @@ var middleware = (function() {
             recorder.ondataavailable = function(blobs) {
                 videoBlobs.push(blobs.video);
                 audioBlobs.push(blobs.audio);
-                console.log("a blob now");
             };
-            recorder.start(500);
+            recorder.start(5000);
             
             setTimeout(function() {
                 recorder.stop();
-                
-                //Concatenate blobs
-                ConcatenateBlobs(videoBlobs, videoType, function (result) {
+                videoBlobs.forEach(function(blob) {
+                    var reader = new FileReader();
+                    reader.onload = function(result) {
+                        console.log(result);
+                    }
+                    reader.readAsDataURL(blob);
+                })
+                    
                     //var reader = new FileReader();
                     //reader.onload = function(event) {
-                        
+                    //    console.log(event.target.result);
                     //};
                     //reader.readAsDataURL(result);
-                    //console.log(bytesToSize(result.size));
                     
-                    var to_write_blob = result;
                     //Using sandbox file system
                     //http://www.html5rocks.com/en/tutorials/file/filesystem/
                     //Maybe using github pages to host the recorded streams
-                    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
+                    /* window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
                     window.requestFileSystem(window.TEMPORARY, 1024 * 1024 * 100, function(fs) {
-                        fs.root.getFile('test_video2.webm', {create: true, exclusive: true}, 
+                        fs.root.getFile('test_video.webm', {create: true, exclusive: false}, 
                             function (fileEntry){
                                 fileEntry.createWriter(function(fileWriter) {
                                     fileWriter.onwriteend = function(e){
@@ -341,22 +343,47 @@ var middleware = (function() {
                         },function(e) {console.log(e);});
                     }, function() {
                         console.log("error");
-                    });
+                    }); */
+                    
+                    
+                    //var to_write_blob = result;                    
+                    //console.log(bytesToSize(result.size));
+                    //console.log(URL.createObjectURL(to_write_blob));
                         
-                });
+                //});
                 
-                ConcatenateBlobs(audioBlobs, audioTypee, function (result) {
-                    var reader = new FileReader();
-                    reader.onload = function(event) {
-                        recorder.a = event.target.result;
-                    };
-                    reader.readAsDataURL(result);
-                    console.log(bytesToSize(result.size));
-                });
-            }, 1000 * 3);
+                //reader.readAsDataURL(result);
+                //console.log(bytesToSize(result.size));
+            }, 1000 * 15);
             
             return recorder;
 		}
+        
+        function concatenateBlobs(blobs, type, callback) {
+            var buffers = [];
+            var index = 0;
+            var byteLength = 0;
+            blobs.forEach(function(buffer) {
+                byteLength += buffer.byteLength;
+            });
+            
+            var tmp = new Uint16Array(byteLength);
+            var lastOffset = 0;
+            buffers.forEach(function(buffer) {
+                // BYTES_PER_ELEMENT == 2 for Uint16Array
+                var reusableByteLength = buffer.byteLength;
+                if (reusableByteLength % 2 != 0) {
+                    buffer = buffer.slice(0, reusableByteLength - 1);
+                }
+                tmp.set(new Uint16Array(buffer), lastOffset);
+                lastOffset += reusableByteLength;
+            });
+            
+            var blob = new Blob([tmp.buffer], {
+                type: type
+            });
+            callback(blob);
+        }
         
         // below function via: http://goo.gl/B3ae8c
         function bytesToSize(bytes) {
