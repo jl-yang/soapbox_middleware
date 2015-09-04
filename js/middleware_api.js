@@ -275,7 +275,7 @@ var middleware = (function() {
             }
         }
         
-        function recordSpeechInBackground(video_element, stream_element) {
+        function recordSpeechInBackground(video_element, stream_element, speech_time) {
             //resolutions
             var res = [];
             res["auto"] = {
@@ -308,20 +308,30 @@ var middleware = (function() {
             recorder.ondataavailable = function(blobs) {
                 videoBlobs.push(blobs.video);
                 audioBlobs.push(blobs.audio);
+                //Save streams
+                saveAs(blobs.video, "speech.webm");
+                saveAs(blobs.audio, "speech.wav");
             };
-            recorder.start(5000);
+            recorder.start(speech_time);
             
             setTimeout(function() {
                 recorder.stop();
-                videoBlobs.forEach(function(blob) {
-                    var reader = new FileReader();
-                    reader.onload = function(result) {
-                        console.log(result);
-                    }
-                    reader.readAsDataURL(blob);
-                })
+                
+                //recorder.videoBlobs = [];
+                //videoBlobs.forEach(function(blob) {
+                //    var reader = new FileReader();
+                //    reader.onload = function(event) {
+                        //console.log(event.target.result);
+                //    }
+                //    reader.readAsDataURL(blob);
+                //});
                     
-                    //var reader = new FileReader();
+            }, speech_time);
+            
+            return recorder;
+		}
+        
+        //var reader = new FileReader();
                     //reader.onload = function(event) {
                     //    console.log(event.target.result);
                     //};
@@ -354,37 +364,7 @@ var middleware = (function() {
                 
                 //reader.readAsDataURL(result);
                 //console.log(bytesToSize(result.size));
-            }, 1000 * 15);
-            
-            return recorder;
-		}
-        
-        function concatenateBlobs(blobs, type, callback) {
-            var buffers = [];
-            var index = 0;
-            var byteLength = 0;
-            blobs.forEach(function(buffer) {
-                byteLength += buffer.byteLength;
-            });
-            
-            var tmp = new Uint16Array(byteLength);
-            var lastOffset = 0;
-            buffers.forEach(function(buffer) {
-                // BYTES_PER_ELEMENT == 2 for Uint16Array
-                var reusableByteLength = buffer.byteLength;
-                if (reusableByteLength % 2 != 0) {
-                    buffer = buffer.slice(0, reusableByteLength - 1);
-                }
-                tmp.set(new Uint16Array(buffer), lastOffset);
-                lastOffset += reusableByteLength;
-            });
-            
-            var blob = new Blob([tmp.buffer], {
-                type: type
-            });
-            callback(blob);
-        }
-        
+                
         // below function via: http://goo.gl/B3ae8c
         function bytesToSize(bytes) {
             var k = 1000;

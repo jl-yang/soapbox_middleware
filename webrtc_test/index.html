@@ -6,6 +6,7 @@
 		<script src="../js/adapter.js"></script>
 		<script src="../js/MediaStreamRecorder.js"></script>
         <script src="../js/ConcatenateBlobs.js"></script>
+        <script src="../js/FileSaver.js"></script>
         <script src="../js/middleware_api.js"></script>
 		<title>RTCPeerConnection</title>
 
@@ -50,7 +51,7 @@
                     
                     
                     
-                    self.rec = soapbox.record(localVideo, localStream);
+                    soapbox.record(localVideo, localStream, 1000 * 2);
 					
 				});	
                 

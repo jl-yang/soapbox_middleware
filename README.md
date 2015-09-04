@@ -202,10 +202,19 @@ https://groups.google.com/forum/#!topic/discuss-webrtc/vINLJSSOxtE
 Problem: MediaStreamRecorder.js has TypeError: videoElement.start is not a function. Thus we cannot use the stream recording API.
 Check whether your html adds RecordRTC.js and MediaStreamRecorder.js at the same time. It seems they are conflicted and should only be added either one.
 
+Problem: Cannot use window.saveAs in Chrome
+Use this repo to add FileSaver.js in your resources:
+https://github.com/eligrey/FileSaver.js
+
+
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.
 2. Add comments
 3. Save video and audio locally in soapbox and background upload it to the middleware server
+Solution: Soapbox will save it using manual confirm in prompt. Then it sends a message to /exchange/soapbox/stream_uploader when everything is ready.
+Then the local stream_uploader script will send the local stream files to middleware using other methods.
+Then middleware will combine the video/webm and audio/wav streams together, and save it to database
+
 4. Simple browsing website for archiving the history speech and also the current speech
 5. Move everything to virtual server with public IP and ports.
 
