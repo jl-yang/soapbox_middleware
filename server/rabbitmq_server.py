@@ -10,9 +10,9 @@ import time
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.45.14/hotspots6/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.43.233/hotspots10/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
-    HOTSPOT_ADS_URL = 'http://10.20.45.14/ads2/ads.html'
+    HOTSPOT_ADS_URL = 'http://10.20.43.233/ads10/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -37,8 +37,8 @@ class Middleware(object):
     AUDIENCE_ROUTING_KEY = "audience"
     
     # Test hotspot exchange. 
-    ENABLE_TEST_HOTSPOT = True    
-    FORCE_RESET_TEST_HOTSPOT = True #Usually it would be False, use SOAP wrapper to reset test hotspot
+    ENABLE_TEST_HOTSPOT = False    
+    FORCE_RESET_TEST_HOTSPOT = False #Usually it would be False, use SOAP wrapper to reset test hotspot
     TEST_HOTSPOT_ROUTING_KEY = "fi.ubioulu.lmevent" #So called queue name
     TEST_HOTSPOT_EXCHANGE = "lmevent"
     TEST_HOTSPOT_QUEUE_NAME = "lmevent"
@@ -166,40 +166,64 @@ class Middleware(object):
         self._channel.basic_consume(self.on_message, queue=self.MIDDLEWARE_QUEUE_NAME)
         
     
-    def send_soapbox(self, type, data):     
-        msgObject = {
-            "sender": "middleware",
-            "receiver": "soapbox",
-            "timestamp": datetime.datetime.now().isoformat(),
-            "type": type,
-            "data": data
-        }
+    def send_soapbox(self, type, data): 
+        if data is None: 
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "soapbox",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type
+            }
+        else:
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "soapbox",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type,
+                "data": data
+            }
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.SOAPBOX_ROUTING_KEY, 
                                     body=json.dumps(msgObject))
         self._print_formated_message(msgObject, False) 
     
     def send_hotspot(self, type, data):       
-        msgObject = {
-            "sender": "middleware",
-            "receiver": "hotspot",
-            "timestamp": datetime.datetime.now().isoformat(),
-            "type": type,
-            "data": data 
-        }    
+        if data is None: 
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "hotspot",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type
+            }    
+        else:
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "hotspot",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type,
+                "data": data 
+            }    
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.HOTSPOT_ROUTING_KEY, 
                                     body=json.dumps(msgObject))        
         self._print_formated_message(msgObject, False)
     
     def send_audience(self, type, data):       
-        msgObject = {
-            "sender": "middleware",
-            "receiver": "audience",
-            "timestamp": datetime.datetime.now().isoformat(),
-            "type": type,
-            "data": data 
-        }    
+        if data is None:
+           msgObject = {
+                "sender": "middleware",
+                "receiver": "audience",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type
+            }    
+        else:
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "audience",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type,
+                "data": data 
+            }    
         self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
                                     routing_key=self.AUDIENCE_ROUTING_KEY, 
                                     body=json.dumps(msgObject))        
@@ -276,18 +300,21 @@ class Middleware(object):
                 self.soapbox["id"] = _uuid                    
                 #When soapbox is down and everyone is waiting, the soapbox should give enough offers once reconnects
                 self.IS_SOAPBOX_READY = True
-                print "Current hotspots: ", self.hotspots
-                for hotspot in self.hotspots:
-                    self.threaded_send_request_offer(hotspot["id"])
-                #Send likes and dislikes updates in case soapbox is trying to reconnect
+                
+                #Should send these info first
                 self.send_soapbox("likes", {"likes": self._likes["total"]})
                 self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
                 self.send_soapbox("reports", {"reports": self._reports["total"]})
                 
-            elif type == "offer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+                print "Current hotspots: ", self.hotspots                
+                for hotspot in self.hotspots:
+                    self.threaded_send_request_offer(hotspot["id"])
+                #Send likes and dislikes updates in case soapbox is trying to reconnect
+                
+            elif type == "offer" and "sdp" in data and "hotspot_id" in data:
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
-            elif type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:                
+            elif type == "ice-candidate" and "ice" in data and "hotspot_id" in data:                
                 self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
             elif type == "start_broadcast":                
@@ -321,7 +348,7 @@ class Middleware(object):
             elif type == "ready":
                 self.IS_SOAPBOX_READY = True
             
-            elif type == "meta-data" and data["speech_info"] is not None:
+            elif type == "meta-data" and "speech_info" in data:
                 #Save it locally and send it to all hotspots and audience once they are online
                 self.speech_info = data["speech_info"]
                 if self.ENABLE_TEST_HOTSPOT is True:
@@ -329,7 +356,7 @@ class Middleware(object):
                     self.send_audience("meta-data", {"speech_info": self.speech_info})
             
         elif sender == "hotspot":
-            if type == "register" and data["name"] is not None:      
+            if type == "register" and "name" in data:      
                 _hotspot_id = self._create_unique_uuid()
                 self.hotspots.append({"id": _hotspot_id, "name": data["name"]})
                 self.send_hotspot("register", {"hotspot_id": _hotspot_id})
@@ -345,27 +372,29 @@ class Middleware(object):
                 #Request an offer for hotspot client                    
                 self.threaded_send_request_offer(_hotspot_id) 
                  
-            elif type == "answer" and data["sdp"] is not None and data["hotspot_id"] is not None:
+            elif type == "answer" and "sdp" in data and "hotspot_id" in data:
                 self.send_soapbox("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
-            elif type == "ice-candidate" and data["ice"] is not None and data["hotspot_id"] is not None:
+            elif type == "ice-candidate" and "ice" in data and "hotspot_id" in data:
                 self.send_soapbox("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
             elif type == "unregister":
-                if data["hotspot_id"] is None:
+                if "hotspot_id" not in data:
                     print "Unknown hotspot offline."
                 else:
                     for i, hotspot in enumerate(self.hotspots):
                         if hotspot["id"] == data["hotspot_id"]:
                             self.hotspots.pop(i)
                             break
-                    self.send_soapbox("unregister", {"hotspot_id": data["hotspot_id"]})
+                    #This should be fixed by middleware api
+                    if "hotspot_id" in data:
+                        self.send_soapbox("unregister", {"hotspot_id": data["hotspot_id"]})
                     
             #Control likes, dislikes, reports info 
-            elif type == "like" and data["hotspot_id"] is not None:	
+            elif type == "like" and "hotspot_id" in data:	
                 _id = data["hotspot_id"]
                 #Add it to specific hotspot subdirectory
-                if self._likes["likes"].get(_id) is None:
+                if _id not in self._likes["likes"]:
                     self._likes["likes"][_id] = 1
                 else:
                     self._likes["likes"][_id] += 1
@@ -376,10 +405,10 @@ class Middleware(object):
                 self.send_hotspot("likes", {"likes": self._likes["total"]})
                 self.send_audience("likes", {"likes": self._likes["total"]})
                 
-            elif type == "dislike" and data["hotspot_id"] is not None:	
+            elif type == "dislike" and "hotspot_id" in data:	
                 _id = data["hotspot_id"]
                 #Add it to specific hotspot subdirectory
-                if self._dislikes["dislikes"].get(_id) is None:
+                if _id not in self._dislikes["dislikes"]:
                     self._dislikes["dislikes"][_id] = 1
                 else:
                     self._dislikes["dislikes"][_id] += 1
@@ -390,10 +419,10 @@ class Middleware(object):
                 self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"]})
                 self.send_audience("dislikes", {"dislikes": self._dislikes["total"]})
             
-            elif type == "report" and data["hotspot_id"] is not None:	
+            elif type == "report" and "hotspot_id" in data:	
                 _id = data["hotspot_id"]
                 #Add it to specific hotspot subdirectory
-                if self._reports["reports"].get(_id) is None:
+                if _id not in self._reports["reports"]:
                     self._reports["reports"][_id] = 1
                 else:
                     self._reports["reports"][_id] += 1
@@ -402,7 +431,7 @@ class Middleware(object):
                 print "[*] Reports updated: ", self._reports["total"]
         
         elif sender == "audience":                
-            if type == "comment" and data["comment"] is not None:
+            if type == "comment" and "comment" in data:
                 #Print out the comment now
                 print "Comment: ", data["comment"]  
                 _username = data["comment"]["username"]
@@ -437,7 +466,7 @@ class Middleware(object):
                 self._reports["total"] += 1
                 print "[*] Reports updated: ", self._reports["total"]
             
-            elif type == "meta-data" and data["speech_info"] is not None:
+            elif type == "meta-data" and "speech_info" in data:
                 #To-do
                 self.speech_info = data["speech_info"]
                 self.send_audience("meta-data", {"speech_info": self.speech_info})
@@ -481,7 +510,7 @@ class Middleware(object):
             _uuid = str(uuid.uuid4()) 
             IS_UNIQUE = True            
             #Compare with possible soapbox id first
-            if self.soapbox.get("id") is not None:
+            if "id" in self.soapbox:
                 if _uuid == self.soapbox["id"]:
                     IS_UNIQUE = False
                     continue

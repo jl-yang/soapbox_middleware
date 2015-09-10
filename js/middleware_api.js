@@ -459,7 +459,9 @@ var middleware = (function() {
 							{	
 								return;
 							}					
-                            if (hotspot_id && signal.data.hotspot_id && hotspot_id !== signal.data.hotspot_id) {
+                            if (typeof hotspot_id !== "undefined" && typeof signal.data !== "undefined"
+                                && typeof signal.data.hotspot_id !== "undefined" 
+                                && hotspot_id !== signal.data.hotspot_id) {
                                 return;
                             }
                             if (signal.type == "register" && signal.data.hotspot_id) {
