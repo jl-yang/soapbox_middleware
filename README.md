@@ -39,13 +39,27 @@ soapbox.connect(function () {
     //Register reports update callback
     soapbox.onreceivereports = function (reports) {};
     
+    //Callback of registered reservation dates
+    soapbox.onreceivereservations = function (reservations) {
+        //It would be an array like:  ["10/09/2015 12:00", "10/09/2014 12:00"]
+        console.log(reservations);
+    }
+    
 	//Start speech transmission
 	soapbox.start(local_stream);
     
     //Mandatory, register itself
     soapbox.register();
     
+    //Callback of requesting next speech info
+    soapbox.onreceivenextspeechinfo = function(speech_info) {
+        console.log(speech_info);
+    }
+    //Initial the request
+    soapbox.next_speech();
 });
+
+
 
 //Try to tell middleware that it is about to close
 window.onbeforeunload = function(event) {
@@ -170,26 +184,26 @@ https://www.rabbitmq.com/access-control.html
 4. Don't forget to delete the comma after that line
 
 ##Troubleshooting
-Problem: How to restart rabbitmq server
+1. Problem: How to restart rabbitmq server
 sudo service rabbitmq-server restart
 
-Problem: Cookie file /var/lib/rabbitmq/.erlang.cookie must be accessible by owner only
+2. Problem: Cookie file /var/lib/rabbitmq/.erlang.cookie must be accessible by owner only
 http://serverfault.com/questions/406712/rabbitmq-erlang-cookie
 chmod 600
 
-Problem: {cannot_read_enabled_plugins_file,"/etc/rabbitmq/enabled_plugins"
+3. Problem: {cannot_read_enabled_plugins_file,"/etc/rabbitmq/enabled_plugins"
 http://grokbase.com/t/rabbitmq/rabbitmq-discuss/12ajc9days/rabbitmq-doesnt-start-after-installation-of-rabbitmq-management
 https://groups.google.com/forum/#!topic/rabbitmq-users/DtwvJ2W634Q
 Change access of the enabled_plugins file to 777
 Noted: This file seems to be umasked by root user everytime you want to enable new plugins. Just chmod each time, and restart the server
 
-Problem: Cannot connect to the test hotspot
+4. Problem: Cannot connect to the test hotspot
 You must be within the panOulu network (not ee network, or others)
 
-Problem: Video transmission starts and freezes at the first frame using WebRTC.
+5. Problem: Video transmission starts and freezes at the first frame using WebRTC.
 Add "autoplay" attribute to the video tag for displaying the video 
 
-Problem: When soapbox is broadcasting to many hotspots and soapbox goes down and reconnects, basically middleware will ask for multiple offers at the same time.
+6. Problem: When soapbox is broadcasting to many hotspots and soapbox goes down and reconnects, basically middleware will ask for multiple offers at the same time.
 Then soapbox will react to it, and iceConnectionState remain "checking" and adapter.js has typeeeror as cannot setRemoteDescription because STATE_INPROGRESS
 *This problem is actually very severe if multiple hotspot clients are requesting simultaneously, or soapbox goes down in the middle of multi-broadcasting.*
 I tried delaying the answers from middleware, or disabling the ICE trickling, but neither worked.
@@ -199,10 +213,10 @@ Remember to use lock in threaded function, as it could cause serious potential p
 http://w3c.github.io/webrtc-pc/#rtciceconnectionstate-enum
 https://groups.google.com/forum/#!topic/discuss-webrtc/vINLJSSOxtE
 
-Problem: MediaStreamRecorder.js has TypeError: videoElement.start is not a function. Thus we cannot use the stream recording API.
+7. Problem: MediaStreamRecorder.js has TypeError: videoElement.start is not a function. Thus we cannot use the stream recording API.
 Check whether your html adds RecordRTC.js and MediaStreamRecorder.js at the same time. It seems they are conflicted and should only be added either one.
 
-Problem: Cannot use window.saveAs in Chrome
+8. Problem: Cannot use window.saveAs in Chrome
 Use this repo to add FileSaver.js in your resources:
 https://github.com/eligrey/FileSaver.js
 

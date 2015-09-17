@@ -119,6 +119,9 @@ var middleware = (function() {
 		this.onreceivedislikes = onReceiveDislikesUpdate;
 		this.onreceivereports = onReceiveReportsUpdate;
 		this.onreceivecomment = onReceiveComment;
+        this.onreceivenextspeechinfo = onReceiveNextSpeechInfo;
+        this.onreceivereservations = onReceiveReservations;
+        this.next_speech = RetrieveNextSpeechInfo;
         
 		//Record API
 		this.record = recordSpeechInBackground;
@@ -137,6 +140,18 @@ var middleware = (function() {
 		
         function onReceiveComment(comment) {
             //None
+        }
+        
+        function onReceiveReservations(reservations) {
+            //None
+        }
+        
+        function onReceiveNextSpeechInfo(speech_info) {
+            //None
+        }
+        
+        function RetrieveNextSpeechInfo() {
+            sendMessageToMiddleware("next_speech_info", null);
         }
         
 		function submitSpeechInfo(speech_info) {
@@ -213,6 +228,12 @@ var middleware = (function() {
 							}
                             else if(signal.type == "comment" && signal.data.comment) {
                                 self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
+                            }
+                            else if(signal.type == "reservations" && signal.data.reservations) {
+                                self.onreceivereservations(signal.data.reservations);
+                            }
+                            else if(signal.type == "next_speech_info" && signal.data.speech_info) {
+                                self.onreceivespeechinfo(signal.data.speech_info);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);

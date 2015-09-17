@@ -120,7 +120,8 @@ class Middleware(object):
             "total": 0,
             "reports": {}
         }
-                                       
+        self._reservations = {}
+        
     def run(self):
         self._connection = pika.SelectConnection(parameters=self._parameters, on_open_callback=self.on_connected)
         print ' [*] Waiting for messages. To exit press CTRL+C'
@@ -305,6 +306,7 @@ class Middleware(object):
                 self.send_soapbox("likes", {"likes": self._likes["total"]})
                 self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
                 self.send_soapbox("reports", {"reports": self._reports["total"]})
+                self.send_soapbox("reservations", {"reservations": self._reservations.keys()})
                 
                 print "Current hotspots: ", self.hotspots                
                 for hotspot in self.hotspots:
@@ -348,12 +350,19 @@ class Middleware(object):
             elif type == "ready":
                 self.IS_SOAPBOX_READY = True
             
-            elif type == "meta-data" and "speech_info" in data:
+            elif type == "meta-data" and "speech_info" in data and "lefttime" in data["speech_info"] and "password" in data["speech_info"]:
                 #Save it locally and send it to all hotspots and audience once they are online
                 self.speech_info = data["speech_info"]
+                #Save the speech reservation dates and corresponding password
+                self._reservations[data["speech_info"]["lefttime"]] = data["speech_info"]["password"]
+                
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_ADS_URL)
                     self.send_audience("meta-data", {"speech_info": self.speech_info})
+            
+            elif type == "next_speech_info":
+                #Requested by soapbox
+                self.send_soapbox("next_speech_info", {"speech_info": self.speech_info})
             
         elif sender == "hotspot":
             if type == "register" and "name" in data:      
