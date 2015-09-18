@@ -18,6 +18,7 @@ type:   ice-candidate, offer, answer,
         likes, dislikes, reports
         like, dislike, report
         current_speech_info, next_speech_info
+        validation
 {
 	"sender": "middleware",
 	"receiver": "soapbox",

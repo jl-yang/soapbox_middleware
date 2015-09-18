@@ -3,6 +3,7 @@ import json
 import requests
 import uuid
 import datetime
+import collections
 from threading import Thread, Lock
 import time
 
@@ -306,7 +307,14 @@ class Middleware(object):
                 self.send_soapbox("likes", {"likes": self._likes["total"]})
                 self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
                 self.send_soapbox("reports", {"reports": self._reports["total"]})
-                self.send_soapbox("reservations", {"reservations": self._reservations.keys()})
+                # _keys = self._reservations.keys();
+                # _dates = []
+                # if _keys:
+                    # for key in _keys:
+                        # date = key.split()
+                        # _dates.append(date[0])
+                
+                self.send_soapbox("reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self._reservations.keys()]})
                 
                 print "Current hotspots: ", self.hotspots                
                 for hotspot in self.hotspots:
@@ -353,8 +361,9 @@ class Middleware(object):
             elif type == "meta-data" and "speech_info" in data and "lefttime" in data["speech_info"] and "password" in data["speech_info"]:
                 #Save it locally and send it to all hotspots and audience once they are online
                 self.speech_info = data["speech_info"]
-                #Save the speech reservation dates and corresponding password
-                self._reservations[data["speech_info"]["lefttime"]] = data["speech_info"]["password"]
+                #Save the speech reservation dates and corresponding password. Use datetime object as key
+                _date_object = datetime.datetime.strptime(data["speech_info"]["lefttime"], "%d/%m/%Y %H:%M")
+                self._reservations[_date_object] = data["speech_info"]["password"]
                 
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_ADS_URL)
@@ -363,6 +372,21 @@ class Middleware(object):
             elif type == "next_speech_info":
                 #Requested by soapbox
                 self.send_soapbox("next_speech_info", {"speech_info": self.speech_info})
+            
+            elif type == "validation" and "password" in data:
+                #Requested by soapbox 
+                #Check if there is any reservation
+                if len(self._reservations) == 0:
+                    self.send_soapbox("validation", {"validation": False, "message": "No reservations yet"})
+                else:   
+                    #Use ordered dictionary to get latest reservation
+                    od = collections.OrderedDict(sorted(self._reservations.items()))
+                    #Latest password is the valid one 
+                    correct_password = od[od.keys()[-1]]
+                    if data["password"] == correct_password:
+                        self.send_soapbox("validation", {"validation": True})
+                    else:
+                        self.send_soapbox("validation", {"validation": False})
             
         elif sender == "hotspot":
             if type == "register" and "name" in data:      

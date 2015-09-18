@@ -57,6 +57,15 @@ soapbox.connect(function () {
     }
     //Initial the request
     soapbox.next_speech();
+    
+    //Callback of validating password
+    soapbox.onvalidationresult = function(result) {
+        //result is true or false
+        console.log(result);
+    }
+    //Request validating a password to check if it is for the next speech
+    soapbox.validate(password);
+    
 });
 
 

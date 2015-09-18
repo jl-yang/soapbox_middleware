@@ -122,12 +122,15 @@ var middleware = (function() {
         this.onreceivenextspeechinfo = onReceiveNextSpeechInfo;
         this.onreceivereservations = onReceiveReservations;
         this.next_speech = RetrieveNextSpeechInfo;
+        this.validate = ValidateIfPasswordIsForLatestSpeech;
+        this.onvalidationresult = onReceiveValidationResult;
         
 		//Record API
 		this.record = recordSpeechInBackground;
 		
 		function onReceiveLikesUpdate(likes) {
 			//None
+            
 		}
 		
 		function onReceiveDislikesUpdate(dislikes) {
@@ -152,6 +155,14 @@ var middleware = (function() {
         
         function RetrieveNextSpeechInfo() {
             sendMessageToMiddleware("next_speech_info", null);
+        }
+        
+        function ValidateIfPasswordIsForLatestSpeech(password) {
+            sendMessageToMiddleware("validation", {"password": password});
+        } 
+        
+        function onReceiveValidationResult() {
+            //None
         }
         
 		function submitSpeechInfo(speech_info) {
@@ -234,6 +245,9 @@ var middleware = (function() {
                             }
                             else if(signal.type == "next_speech_info" && signal.data.speech_info) {
                                 self.onreceivespeechinfo(signal.data.speech_info);
+                            }
+                            else if(signal.type == "validation" && signal.data.validation) {
+                                self.onvalidationresult(signal.data.validation);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
