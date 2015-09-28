@@ -121,6 +121,7 @@ var middleware = (function() {
 		this.onreceivecomment = onReceiveComment;
         this.onreceivenextspeechinfo = onReceiveNextSpeechInfo;
         this.onreceivereservations = onReceiveReservations;
+        this.get_reservations = GetReservationsFromMiddleware;
         this.next_speech = RetrieveNextSpeechInfo;
         this.validate = ValidateIfPasswordIsForLatestSpeech;
         this.onvalidationresult = onReceiveValidationResult;
@@ -160,6 +161,10 @@ var middleware = (function() {
         function ValidateIfPasswordIsForLatestSpeech(password) {
             sendMessageToMiddleware("validation", {"password": password});
         } 
+        
+        function GetReservationsFromMiddleware() {
+            sendMessageToMiddleware("reservations", null);
+        }
         
         function onReceiveValidationResult() {
             //None
@@ -331,6 +336,10 @@ var middleware = (function() {
             };
             
             var recorder = new MultiStreamRecorder(stream_element);
+            if (navigator.mozGetUserMedia) {
+                recorder.mimeType = 'video/webm';
+            }
+            
             var videoBlobs = [];
             var audioBlobs = [];
             var videoType = "video/webm";
@@ -344,8 +353,10 @@ var middleware = (function() {
                 videoBlobs.push(blobs.video);
                 audioBlobs.push(blobs.audio);
                 //Save streams
-                saveAs(blobs.video, "speech.webm");
-                saveAs(blobs.audio, "speech.wav");
+                var qqq = saveAs(blobs.video, "speech-video_" + new Date().toISOString() + ".webm");
+                console.debug(qqq);
+                console.debug("SaveAs done now");
+                //saveAs(blobs.audio, "speech-audio_" + new Date().toISOString() + ".wav");
             };
             recorder.start(speech_time);
             

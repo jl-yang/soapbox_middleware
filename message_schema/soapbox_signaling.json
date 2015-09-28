@@ -17,7 +17,7 @@ type:   ice-candidate, offer, answer,
         register, unregister
         likes, dislikes, reports
         like, dislike, report
-        current_speech_info, next_speech_info
+        current_speech_info, next_speech_info, reservations
         validation
 {
 	"sender": "middleware",

@@ -7,13 +7,29 @@ import collections
 from threading import Thread, Lock
 import time
 
+import pymongo
+from pymongo import MongoClient
+
+class dbHandler:
+    client = None
+    db = None
+    
+    def __init__(self):
+        self.client = MongoClient()
+        
+        self.db = self.client["soapbox_db"]
+    
+    
+    #reservation should be a dictionary
+    def add_reservation(self, reservation):
+        self.db.insert_one(reservation)
 
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.43.233/hotspots10/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.42.170/hotspots16/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
-    HOTSPOT_ADS_URL = 'http://10.20.43.233/ads10/ads.html'
+    HOTSPOT_ADS_URL = 'http://10.20.42.170/ads16/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -314,7 +330,6 @@ class Middleware(object):
                         # date = key.split()
                         # _dates.append(date[0])
                 
-                self.send_soapbox("reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self._reservations.keys()]})
                 
                 print "Current hotspots: ", self.hotspots                
                 for hotspot in self.hotspots:
@@ -387,6 +402,9 @@ class Middleware(object):
                         self.send_soapbox("validation", {"validation": True})
                     else:
                         self.send_soapbox("validation", {"validation": False})
+            elif type == "reservations":
+                self.send_soapbox("reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self._reservations.keys()]})
+                
             
         elif sender == "hotspot":
             if type == "register" and "name" in data:      
