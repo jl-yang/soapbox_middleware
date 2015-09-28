@@ -44,6 +44,8 @@ soapbox.connect(function () {
         //It would be an array like:  ["10/09/2015 12:00", "10/09/2014 12:00"]
         console.log(reservations);
     }
+    //Initial the action to send me the reservations
+    soapbox.get_reservations();
     
 	//Start speech transmission
 	soapbox.start(local_stream);

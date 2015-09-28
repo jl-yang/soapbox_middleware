@@ -249,7 +249,7 @@ var middleware = (function() {
                                 self.onreceivereservations(signal.data.reservations);
                             }
                             else if(signal.type == "next_speech_info" && signal.data.speech_info) {
-                                self.onreceivespeechinfo(signal.data.speech_info);
+                                self.onreceivenextspeechinfo(signal.data.speech_info);
                             }
                             else if(signal.type == "validation" && signal.data.validation) {
                                 self.onvalidationresult(signal.data.validation);
