@@ -62,8 +62,8 @@ soapbox.connect(function () {
     
     //Callback of validating password
     soapbox.onvalidationresult = function(result) {
-        //result is true or false
-        console.log(result);
+        //result will be 0, 1, or 2
+        //2 means exact password for next speech, 1 means valid password but not for next speech, 0 means invalid password
     }
     //Request validating a password to check if it is for the next speech
     soapbox.validate(password);

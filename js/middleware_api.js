@@ -166,8 +166,9 @@ var middleware = (function() {
             sendMessageToMiddleware("reservations", null);
         }
         
-        function onReceiveValidationResult() {
-            //None
+        function onReceiveValidationResult(result) {
+            //result will be 0, 1, 2
+            
         }
         
 		function submitSpeechInfo(speech_info) {

@@ -27,9 +27,9 @@ class dbHandler:
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.42.170/hotspots16/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.206.67/hotspots18/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
-    HOTSPOT_ADS_URL = 'http://10.20.42.170/ads16/ads.html'
+    HOTSPOT_ADS_URL = 'http://10.20.206.67/ads18/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -120,6 +120,7 @@ class Middleware(object):
         self.soapbox = {}
         self.IS_SOAPBOX_READY = True
         self.request_offer_threads = []
+        self.speech_infos = []
         self.speech_info = None
         self.comments = []
         
@@ -375,18 +376,25 @@ class Middleware(object):
             
             elif type == "meta-data" and "speech_info" in data and "lefttime" in data["speech_info"] and "password" in data["speech_info"]:
                 #Save it locally and send it to all hotspots and audience once they are online
-                self.speech_info = data["speech_info"]
+                
                 #Save the speech reservation dates and corresponding password. Use datetime object as key
                 _date_object = datetime.datetime.strptime(data["speech_info"]["lefttime"], "%d/%m/%Y %H:%M")
                 self._reservations[_date_object] = data["speech_info"]["password"]
+                
+                #Save the speech info, and check if it is the earliest one
+                self.speech_infos[_date_object] = data["speech_info"]
+                #Use ordered dictionary to get earliest reservation
+                od = collections.OrderedDict(sorted(self.speech_infos.items()))
+                self.speech_info = od[od.keys()[0]]
                 
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_ADS_URL)
                     self.send_audience("meta-data", {"speech_info": self.speech_info})
             
             elif type == "next_speech_info":
-                #Requested by soapbox
-                self.send_soapbox("next_speech_info", {"speech_info": self.speech_info})
+                if self.speech_info is not None:
+                    #Requested by soapbox
+                    self.send_soapbox("next_speech_info", {"speech_info": self.speech_info})
             
             elif type == "validation" and "password" in data:
                 #Requested by soapbox 
@@ -398,12 +406,19 @@ class Middleware(object):
                     od = collections.OrderedDict(sorted(self._reservations.items()))
                     #Latest password is the valid one 
                     correct_password = od[od.keys()[-1]]
+                    #Exact next speech password
                     if data["password"] == correct_password:
-                        self.send_soapbox("validation", {"validation": True})
+                        self.send_soapbox("validation", {"validation": 2})
+                    #password is valid, but not for the exact next speech
+                    elif data["password"] in self._reservations.values():
+                        self.send_soapbox("validation", {"validation": 1})
+                    #password is not valid at all
                     else:
-                        self.send_soapbox("validation", {"validation": False})
+                        self.send_soapbox("validation", {"validation": 0})
+                        
             elif type == "reservations":
-                self.send_soapbox("reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self._reservations.keys()]})
+                if len(self._reservations) != 0:
+                    self.send_soapbox("reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self._reservations.keys()]})
                 
             
         elif sender == "hotspot":
@@ -519,7 +534,12 @@ class Middleware(object):
             
             elif type == "meta-data" and "speech_info" in data:
                 #To-do
-                self.speech_info = data["speech_info"]
+                #Save the speech info, and check if it is the latest one
+                self.speech_infos[_date_object] = data["speech_info"]
+                #Use ordered dictionary to get earliest reservation
+                od = collections.OrderedDict(sorted(self.speech_infos.items()))
+                self.speech_info = od[od.keys()[0]]
+                
                 self.send_audience("meta-data", {"speech_info": self.speech_info})
                 #Make hotspot changing to full screen ads mode
                 if self.ENABLE_TEST_HOTSPOT is True:
