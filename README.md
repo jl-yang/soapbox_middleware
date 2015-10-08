@@ -62,8 +62,11 @@ soapbox.connect(function () {
     
     //Callback of validating password
     soapbox.onvalidationresult = function(result) {
-        //result will be 0, 1, or 2
-        //2 means exact password for next speech, 1 means valid password but not for next speech, 0 means invalid password
+        //result will be -1, 0, 1, or 2
+        //2 means exact password for next speech
+        //1 means valid password but not for next speech
+        //0 means invalid password
+        //-1 means now no reservation at all 
     }
     //Request validating a password to check if it is for the next speech
     soapbox.validate(password);

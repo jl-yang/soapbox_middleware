@@ -178,7 +178,7 @@ var middleware = (function() {
 				return false;
 			} else {
 				self.speech_info = speech_info;
-				sendMessageToMiddleware("meta-data", {"speech_info": self.speech_info});
+				sendMessageToMiddleware("submit", {"speech_info": self.speech_info});
 			}
 		}
         
@@ -271,13 +271,13 @@ var middleware = (function() {
         }
         
         //Only tells middleware that it wants to start broadcasting now, middleware will ask for offer
-		function startBroadcast(stream) {
+		function startBroadcast(stream, speech_datetime) {
             localStream = stream;
-            sendMessageToMiddleware("start_broadcast", null);
+            sendMessageToMiddleware("start_broadcast", typeof speech_datetime == "undefined" ? null : {"speech": speech_datetime});
         }
         
-        function stopBroadcast() {
-            sendMessageToMiddleware("stop_broadcast", null);
+        function stopBroadcast(speech_datetime) {
+            sendMessageToMiddleware("stop_broadcast", typeof speech_datetime == "undefined" ? null : {"speech": speech_datetime});
         }
         
         //Called when middleware sends a request_offer message. Offer will be requested only when new hotspot website is online
@@ -546,8 +546,8 @@ var middleware = (function() {
 							else if(signal.type == "comment" && signal.data.comment) {
                                 self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
                             }
-                            else if(signal.type == "meta-data" && signal.data.speech_info) {
-                                self.onreceivespeechinfo(signal.data.speech_info);
+                            else if(signal.type == "current_speech_info" && signal.data.current_speech_info) {
+                                self.onreceivespeechinfo(signal.data.current_speech_info);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -703,12 +703,12 @@ var middleware = (function() {
 		}      
         
         function getCurrentSpeechInfo() {
-            //This will cause middleware to send "meta-data" speech info to audience
+            //This will cause middleware to send "submit" speech info to audience
             sendMessageToMiddleware("current_speech_info");
         }
         
         function submitSpeechInfo(speech_info) {
-            sendMessageToMiddleware("meta-data", {"speech_info": speech_info});
+            sendMessageToMiddleware("submit", {"speech_info": speech_info});
         }
         
         function addLike() {
@@ -764,7 +764,7 @@ var middleware = (function() {
 							else if(signal.type == "dislikes") {
 								self.onreceivedislikes(signal.data.dislikes);
 							}	
-                            else if(signal.type == "meta-data") {
+                            else if(signal.type == "submit") {
                                 self.onreceivespeechinfo(signal.data.speech_info);
                             }
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);

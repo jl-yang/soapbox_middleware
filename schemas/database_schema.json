@@ -1,0 +1,49 @@
+speeches document
+
+{
+    "speech_id": <Starting DateTime String>,
+    "is_reserved_speech": True,
+    "status": "reserved" (speeches started right away won't have such status)/ "waiting" / "ongoing" / "over" or "unused"
+    "is_given": True once it becomes "ongoing" status,
+    "length": ,
+    "start_timestamp":
+    "end_timestamp":
+    "password": 
+    "speaker_name": "Jilin Yang",
+    "speech_topic": "Hello everyone"    
+}
+
+likes document
+
+{
+    "speech_id": <Same as speech_id in speeches document>,
+    "timestamp":
+    "sender": "audience" or hotspot name
+}
+
+dislikes document
+
+{
+    "speech_id": <Same as speech_id in speeches document>,
+    "timestamp":
+    "sender": "audience" or hotspot name
+}
+
+reports document
+
+{
+    "speech_id": <Same as speech_id in speeches document>,
+    "timestamp":
+    "sender": "audience" or hotspot name
+}
+
+comments document
+
+{
+    "speech_id": <Same as speech_id in speeches document>,
+    "timestamp":
+    "sender": "audience" or hotspot name
+    "name":
+    "content":
+}
+

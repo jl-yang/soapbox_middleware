@@ -4,7 +4,7 @@ import requests
 import uuid
 import datetime
 import collections
-from threading import Thread, Lock
+from threading import Thread, Lock, Timer
 import time
 
 import pymongo
@@ -23,13 +23,15 @@ class dbHandler:
     #reservation should be a dictionary
     def add_reservation(self, reservation):
         self.db.insert_one(reservation)
+        
+    
 
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.206.67/hotspots18/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.47.62/hotspots19/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
-    HOTSPOT_ADS_URL = 'http://10.20.206.67/ads18/ads.html'
+    HOTSPOT_ADS_URL = 'http://10.20.47.62/ads19/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
     
     #Fullscreen configs on test hotspot
@@ -120,25 +122,22 @@ class Middleware(object):
         self.soapbox = {}
         self.IS_SOAPBOX_READY = True
         self.request_offer_threads = []
-        self.speech_infos = []
-        self.speech_info = None
+        self.speech_infos = {}
+        self.next_speech_info = None
         self.comments = []
         
         #Hotspot clients info
         self.hotspots = []    
-        self._likes = {
-            "total": 0,
-            "likes": {}
+        self.likes = {
+            "total": 0
         }
-        self._dislikes = {
-            "total": 0,
-            "dislikes": {}
+        self.dislikes = {
+            "total": 0
         }
-        self._reports = {
-            "total": 0,
-            "reports": {}
+        self.reports = {
+            "total": 0
         }
-        self._reservations = {}
+        self.reservations = {}
         
     def run(self):
         self._connection = pika.SelectConnection(parameters=self._parameters, on_open_callback=self.on_connected)
@@ -184,6 +183,14 @@ class Middleware(object):
     def on_bind_soapbox_ok(self, frame):
         self._channel.basic_consume(self.on_message, queue=self.MIDDLEWARE_QUEUE_NAME)
         
+    
+    def send(self, sender, type, data):
+        if sender == "soapbox":
+            self.send_soapbox(type, data)
+        elif sender == "hotspot":
+            self.send_hotspot(type, data)
+        elif sender == "audience":
+            self.send_audience(type, data)
     
     def send_soapbox(self, type, data): 
         if data is None: 
@@ -319,23 +326,19 @@ class Middleware(object):
                 self.soapbox["id"] = _uuid                    
                 #When soapbox is down and everyone is waiting, the soapbox should give enough offers once reconnects
                 self.IS_SOAPBOX_READY = True
+                                
+                #Send likes and dislikes updates in case soapbox is trying to reconnect
+                if self.likes["total"] != 0:
+                    self.send_soapbox("likes", {"likes": self.likes["total"]})
+                if self.dislikes["total"] != 0:
+                    self.send_soapbox("dislikes", {"dislikes": self.dislikes["total"]})
+                if self.reports["total"] != 0:
+                    self.send_soapbox("reports", {"reports": self.reports["total"]})
                 
-                #Should send these info first
-                self.send_soapbox("likes", {"likes": self._likes["total"]})
-                self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
-                self.send_soapbox("reports", {"reports": self._reports["total"]})
-                # _keys = self._reservations.keys();
-                # _dates = []
-                # if _keys:
-                    # for key in _keys:
-                        # date = key.split()
-                        # _dates.append(date[0])
+                print "Current hotspots: ", self.hotspots      
                 
-                
-                print "Current hotspots: ", self.hotspots                
                 for hotspot in self.hotspots:
                     self.threaded_send_request_offer(hotspot["id"])
-                #Send likes and dislikes updates in case soapbox is trying to reconnect
                 
             elif type == "offer" and "sdp" in data and "hotspot_id" in data:
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
@@ -344,11 +347,11 @@ class Middleware(object):
                 self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
             elif type == "start_broadcast":                
-                #Just a message for all audience
+                #Just a message for all audience, so audience can comment now
                 self.send_audience("start_broadcast", None)
+                
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
-                    self.stop_broadcast()
                     self.start_broadcast(self.HOTSPOT_WEBSITE_URL)
             
             #Stop speech transmission in hotspot website according to message from soapbox website
@@ -359,12 +362,12 @@ class Middleware(object):
                 self.send_hotspot("stop_broadcast", None)                
                 self.soapbox = {}
                 #Save data of likes, dislikes, reports and clear them
-                self._likes["likes"] = {}
-                self._likes["total"] = 0
-                self._dislikes["dislikes"] = {}
-                self._dislikes["total"] = 0
-                self._reports["reports"] = {}
-                self._reports["total"] = 0
+                self.likes["likes"] = {}
+                self.likes["total"] = 0
+                self.dislikes["dislikes"] = {}
+                self.dislikes["total"] = 0
+                self.reports["reports"] = {}
+                self.reports["total"] = 0
                 #Save comments and clear them
                 self.comments = []
                 #Should also redirect all hotspots back from full screen state
@@ -372,66 +375,20 @@ class Middleware(object):
                     self.stop_broadcast()
                     
             elif type == "ready":
-                self.IS_SOAPBOX_READY = True
+                self.IS_SOAPBOX_READY = True                
+                                                        
             
-            elif type == "meta-data" and "speech_info" in data and "lefttime" in data["speech_info"] and "password" in data["speech_info"]:
-                #Save it locally and send it to all hotspots and audience once they are online
-                
-                #Save the speech reservation dates and corresponding password. Use datetime object as key
-                _date_object = datetime.datetime.strptime(data["speech_info"]["lefttime"], "%d/%m/%Y %H:%M")
-                self._reservations[_date_object] = data["speech_info"]["password"]
-                
-                #Save the speech info, and check if it is the earliest one
-                self.speech_infos[_date_object] = data["speech_info"]
-                #Use ordered dictionary to get earliest reservation
-                od = collections.OrderedDict(sorted(self.speech_infos.items()))
-                self.speech_info = od[od.keys()[0]]
-                
-                if self.ENABLE_TEST_HOTSPOT is True:
-                    self.start_broadcast(self.HOTSPOT_ADS_URL)
-                    self.send_audience("meta-data", {"speech_info": self.speech_info})
-            
-            elif type == "next_speech_info":
-                if self.speech_info is not None:
-                    #Requested by soapbox
-                    self.send_soapbox("next_speech_info", {"speech_info": self.speech_info})
-            
-            elif type == "validation" and "password" in data:
-                #Requested by soapbox 
-                #Check if there is any reservation
-                if len(self._reservations) == 0:
-                    self.send_soapbox("validation", {"validation": False, "message": "No reservations yet"})
-                else:   
-                    #Use ordered dictionary to get latest reservation
-                    od = collections.OrderedDict(sorted(self._reservations.items()))
-                    #Latest password is the valid one 
-                    correct_password = od[od.keys()[-1]]
-                    #Exact next speech password
-                    if data["password"] == correct_password:
-                        self.send_soapbox("validation", {"validation": 2})
-                    #password is valid, but not for the exact next speech
-                    elif data["password"] in self._reservations.values():
-                        self.send_soapbox("validation", {"validation": 1})
-                    #password is not valid at all
-                    else:
-                        self.send_soapbox("validation", {"validation": 0})
-                        
-            elif type == "reservations":
-                if len(self._reservations) != 0:
-                    self.send_soapbox("reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self._reservations.keys()]})
-                
-            
-        elif sender == "hotspot":
+        if sender == "hotspot":
             if type == "register" and "name" in data:      
                 _hotspot_id = self._create_unique_uuid()
                 self.hotspots.append({"id": _hotspot_id, "name": data["name"]})
                 self.send_hotspot("register", {"hotspot_id": _hotspot_id})
                 #Also send speech info 
-                if self.speech_info is not None:
-                    self.send_hotspot("meta-data", {"speech_info": self.speech_info, "hotspot_id": _hotspot_id})
+                if self.current_speech_info is not None:
+                    self.send_hotspot("current_speech_info", {"current_speech_info": self.current_speech_info, "hotspot_id": _hotspot_id})
                 #Also send likes, dislikes info 
-                self.send_hotspot("likes", {"likes": self._likes["total"], "hotspot_id": _hotspot_id})
-                self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"], "hotspot_id": _hotspot_id})
+                self.send_hotspot("likes", {"likes": self.likes["total"], "hotspot_id": _hotspot_id})
+                self.send_hotspot("dislikes", {"dislikes": self.dislikes["total"], "hotspot_id": _hotspot_id})
                 for comment in self.comments:
                     self.send_hotspot("comment", {"comment": {"username": comment["username"], "content": comment["content"]}, "hotspot_id": _hotspot_id})
                 
@@ -455,48 +412,9 @@ class Middleware(object):
                     #This should be fixed by middleware api
                     if "hotspot_id" in data:
                         self.send_soapbox("unregister", {"hotspot_id": data["hotspot_id"]})
-                    
-            #Control likes, dislikes, reports info 
-            elif type == "like" and "hotspot_id" in data:	
-                _id = data["hotspot_id"]
-                #Add it to specific hotspot subdirectory
-                if _id not in self._likes["likes"]:
-                    self._likes["likes"][_id] = 1
-                else:
-                    self._likes["likes"][_id] += 1
-                #Add it to total
-                self._likes["total"] += 1
-                print "[*] Likes updated: ", self._likes["total"]
-                self.send_soapbox("likes", {"likes": self._likes["total"]})
-                self.send_hotspot("likes", {"likes": self._likes["total"]})
-                self.send_audience("likes", {"likes": self._likes["total"]})
                 
-            elif type == "dislike" and "hotspot_id" in data:	
-                _id = data["hotspot_id"]
-                #Add it to specific hotspot subdirectory
-                if _id not in self._dislikes["dislikes"]:
-                    self._dislikes["dislikes"][_id] = 1
-                else:
-                    self._dislikes["dislikes"][_id] += 1
-                #Add it to total
-                self._dislikes["total"] += 1
-                print "[*] Dislikes updated: ", self._dislikes["total"]
-                self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
-                self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"]})
-                self.send_audience("dislikes", {"dislikes": self._dislikes["total"]})
-            
-            elif type == "report" and "hotspot_id" in data:	
-                _id = data["hotspot_id"]
-                #Add it to specific hotspot subdirectory
-                if _id not in self._reports["reports"]:
-                    self._reports["reports"][_id] = 1
-                else:
-                    self._reports["reports"][_id] += 1
-                #Add it to total
-                self._reports["total"] += 1
-                print "[*] Reports updated: ", self._reports["total"]
-        
-        elif sender == "audience":                
+                
+        if sender == "audience":                
             if type == "comment" and "comment" in data:
                 #Print out the comment now
                 print "Comment: ", data["comment"]  
@@ -506,44 +424,88 @@ class Middleware(object):
                 self.comments.append({"username": _username, "content": _content})
                 self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
                 self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
+                           
+                      
+        if sender == "soapbox" or sender == "audience":    
+            if type == "submit" and "speech_info" in data and "lefttime" in data["speech_info"] and data["speech_info"]["lefttime"] is not None and "password" in data["speech_info"] and data["speech_info"]["password"] is not None:
+                #Save it locally and send it to all hotspots and audience once they are online
                 
-            elif type == "current_speech_info":
-                #Send speech info if there is any
-                if self.speech_info is not None:
-                    self.send_audience("meta-data", {"speech_info": self.speech_info})
-                    #Just to confirm that broadcast has been started, so audience can comment now
-                    self.send_audience("start_broadcast", None)
+                #Save the speech reservation dates and corresponding password. Use datetime object as key
+                _date_object = datetime.datetime.strptime(data["speech_info"]["lefttime"], "%d/%m/%Y %H:%M")
+                self.reservations[_date_object] = data["speech_info"]["password"]
                 
-            elif type == "like":
-                self._likes["total"] += 1
-                print "[*] Likes updated: ", self._likes["total"]
-                self.send_soapbox("likes", {"likes": self._likes["total"]})
-                self.send_hotspot("likes", {"likes": self._likes["total"]})
-                self.send_audience("likes", {"likes": self._likes["total"]})
-            
-            elif type == "dislike":
-                self._dislikes["total"] += 1
-                print "[*] Dislikes updated: ", self._dislikes["total"]
-                self.send_soapbox("dislikes", {"dislikes": self._dislikes["total"]})
-                self.send_hotspot("dislikes", {"dislikes": self._dislikes["total"]})
-                self.send_audience("dislikes", {"dislikes": self._dislikes["total"]})
-                
-            elif type == "report":
-                self._reports["total"] += 1
-                print "[*] Reports updated: ", self._reports["total"]
-            
-            elif type == "meta-data" and "speech_info" in data:
-                #To-do
-                #Save the speech info, and check if it is the latest one
+                #Save the speech info, and check if it is the earliest one
                 self.speech_infos[_date_object] = data["speech_info"]
                 #Use ordered dictionary to get earliest reservation
                 od = collections.OrderedDict(sorted(self.speech_infos.items()))
-                self.speech_info = od[od.keys()[0]]
+                if self.next_speech_info != od[od.keys()[0]]:
+                    self.next_speech_info = od[od.keys()[0]]
+                    self.send_soapbox("next_speech_info", {"next_speech_info": self.next_speech_info})
+            
+            elif type == "current_speech_info":
+                if self.current_speech_info is not None:
+                    self.send(sender, "current_speech_info", {"current_speech_info": self.current_speech_info})
+                                
+            elif type == "next_speech_info":
+                if self.next_speech_info is not None:
+                    self.send(sender, "next_speech_info", {"next_speech_info": self.next_speech_info})
+            
+            elif type == "speech_infos":
+                if len(self.speech_infos) != 0:
+                    self.send(sender, "speech_infos", {"speech_infos": self.speech_infos})
+                        
+            elif type == "validation" and "password" in data:
+                #Requested by soapbox or audience
+                return_value = None
+                #Check if there is any reservation
+                if len(self.reservations) == 0:
+                    return_value = -1
+                else:                   
+                    #Use ordered dictionary to get latest reservation
+                    od = collections.OrderedDict(sorted(self.reservations.items()))
+                    #Latest password is the valid one 
+                    correct_password = od[od.keys()[-1]]
+                    #Exact next speech password
+                    if data["password"] == correct_password:
+                        return_value = 2
+                    #password is valid, but not for the exact next speech
+                    elif data["password"] in self.reservations.values():
+                        return_value = 1
+                    #password is not valid at all
+                    else:
+                        return_value = 0
+                self.send(sender, "validation", {"validation": return_value})
+            
+            elif type == "reservations":
+                self.send(sender, "reservations", {"reservations": [datetime.datetime.strftime(ts, "%d/%m/%Y %H:%M") for ts in self.reservations.keys()]})
                 
-                self.send_audience("meta-data", {"speech_info": self.speech_info})
-                #Make hotspot changing to full screen ads mode
-                if self.ENABLE_TEST_HOTSPOT is True:
-                    self.start_broadcast(self.HOTSPOT_ADS_URL)
+            
+            
+        if sender == "hotspot" or sender == "audience":
+            if sender == "hotspot" and "hotspot_id" not in data:
+                return
+            
+            #Control likes, dislikes, reports info 
+            if type == "like":	
+                #Add it to total
+                self.likes["total"] += 1
+                print "[*] Likes updated: ", self.likes["total"]
+                self.send_soapbox("likes", {"likes": self.likes["total"]})
+                self.send_hotspot("likes", {"likes": self.likes["total"]})
+                self.send_audience("likes", {"likes": self.likes["total"]})
+                
+            elif type == "dislike":	
+                #Add it to total
+                self.dislikes["total"] += 1
+                print "[*] Dislikes updated: ", self.dislikes["total"]
+                self.send_soapbox("dislikes", {"dislikes": self.dislikes["total"]})
+                self.send_hotspot("dislikes", {"dislikes": self.dislikes["total"]})
+                self.send_audience("dislikes", {"dislikes": self.dislikes["total"]})
+            
+            elif type == "report":	
+                #Add it to total
+                self.reports["total"] += 1
+                print "[*] Reports updated: ", self.reports["total"]
                 
     #Test hotspot    
     def on_exchange_declared(self, frame):
