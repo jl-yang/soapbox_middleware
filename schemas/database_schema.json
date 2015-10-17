@@ -2,15 +2,17 @@ speeches document
 
 {
     "speech_id": <Starting DateTime String>,
-    "is_reserved_speech": True,
-    "status": "reserved" (speeches started right away won't have such status)/ "waiting" / "ongoing" / "over" or "unused"
-    "is_given": True once it becomes "ongoing" status,
+    "is_speech_for_reservation": True,
+    "status": "reserved" or "submitted" / "locked" / "unlocked" / "ongoing" / "over"
+    "is_used": True once it becomes "ongoing" status
     "length": ,
+    "unlock_timestamp":
     "start_timestamp":
     "end_timestamp":
     "password": 
     "speaker_name": "Jilin Yang",
-    "speech_topic": "Hello everyone"    
+    "speech_topic": "Hello everyone",
+    "submit_info": <Store info from Soapbox>
 }
 
 likes document

@@ -121,8 +121,13 @@ var middleware = (function() {
 		this.onreceivecomment = onReceiveComment;
         this.onreceivenextspeechinfo = onReceiveNextSpeechInfo;
         this.onreceivereservations = onReceiveReservations;
-        this.get_reservations = GetReservationsFromMiddleware;
+        this.onreceivecurrentspeechinfo = onReceiveCurrentSpeechInfo;
+        this.onreceiveupcomingtodayspeech = onReceiveUpcomingTodaySpeech;
+        
+        this.all_speeches = RetrieveAllSpeechInfos;
         this.next_speech = RetrieveNextSpeechInfo;
+        this.current_speech = RetrieveCurrentSpeechInfo;
+        this.upcoming_speeches_today = RetrieveUpcomingSpeechesForToday;
         this.validate = ValidateIfPasswordIsForLatestSpeech;
         this.onvalidationresult = onReceiveValidationResult;
         
@@ -154,16 +159,32 @@ var middleware = (function() {
             //None
         }
         
+        function onReceiveCurrentSpeechInfo(speech_info) {
+            //None
+        }
+        
+        function onReceiveUpcomingTodaySpeech(speeches) {
+            //None
+        }
+        
         function RetrieveNextSpeechInfo() {
             sendMessageToMiddleware("next_speech_info", null);
+        }
+        
+        function RetrieveCurrentSpeechInfo() {
+            sendMessageToMiddleware("current_speech_info", null);
         }
         
         function ValidateIfPasswordIsForLatestSpeech(password) {
             sendMessageToMiddleware("validation", {"password": password});
         } 
         
-        function GetReservationsFromMiddleware() {
-            sendMessageToMiddleware("reservations", null);
+        function RetrieveAllSpeechInfos() {
+            sendMessageToMiddleware("speech_infos", null);
+        }
+        
+        function RetrieveUpcomingSpeechesForToday() {
+            sendMessageToMiddleware("upcoming_speeches_today", null);
         }
         
         function onReceiveValidationResult(result) {
@@ -246,11 +267,17 @@ var middleware = (function() {
                             else if(signal.type == "comment" && signal.data.comment) {
                                 self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
                             }
-                            else if(signal.type == "reservations" && signal.data.reservations) {
-                                self.onreceivereservations(signal.data.reservations);
+                            else if(signal.type == "speech_infos" && signal.data.speech_infos) {
+                                self.onreceivereservations(signal.data.speech_infos);
                             }
-                            else if(signal.type == "next_speech_info" && signal.data.speech_info) {
-                                self.onreceivenextspeechinfo(signal.data.speech_info);
+                            else if(signal.type == "next_speech_info" && signal.data.next_speech_info) {
+                                self.onreceivenextspeechinfo(signal.data.next_speech_info);
+                            }
+                            else if(signal.type == "current_speech_info" && signal.data.current_speech_info) {
+                                self.onreceivecurrentspeechinfo(signal.data.current_speech_info);
+                            }
+                            else if(signal.type == "upcoming_today_speeches" && signal.data.upcoming_today_speeches) {
+                                self.onreceiveupcomingtodayspeech(signal.data.upcoming_today_speeches);
                             }
                             else if(signal.type == "validation" && signal.data.validation) {
                                 self.onvalidationresult(signal.data.validation);
@@ -271,13 +298,13 @@ var middleware = (function() {
         }
         
         //Only tells middleware that it wants to start broadcasting now, middleware will ask for offer
-		function startBroadcast(stream, speech_datetime) {
+		function startBroadcast(stream, speech_info) {
             localStream = stream;
-            sendMessageToMiddleware("start_broadcast", typeof speech_datetime == "undefined" ? null : {"speech": speech_datetime});
+            sendMessageToMiddleware("start_broadcast", typeof speech_info == "undefined" ? null : {"speech_info": speech_info});
         }
         
-        function stopBroadcast(speech_datetime) {
-            sendMessageToMiddleware("stop_broadcast", typeof speech_datetime == "undefined" ? null : {"speech": speech_datetime});
+        function stopBroadcast() {
+            sendMessageToMiddleware("stop_broadcast", null);
         }
         
         //Called when middleware sends a request_offer message. Offer will be requested only when new hotspot website is online

@@ -43,9 +43,11 @@ soapbox.connect(function () {
     soapbox.onreceivereservations = function (reservations) {
         //It would be an array like:  ["10/09/2015 12:00", "10/09/2014 12:00"]
         console.log(reservations);
-    }
-    //Initial the action to send me the reservations
-    soapbox.get_reservations();
+    }    
+    //Initial the action to send me all reservations
+    soapbox.all_speeches();
+    
+    soapbox.upcoming_speeches_today();
     
 	//Start speech transmission
 	soapbox.start(local_stream);
@@ -57,8 +59,11 @@ soapbox.connect(function () {
     soapbox.onreceivenextspeechinfo = function(speech_info) {
         console.log(speech_info);
     }
-    //Initial the request
+    //Ask for next speech
     soapbox.next_speech();
+    
+    soapbox.onreceivecurrentspeechinfo = function(
+    soapbox.current_speech();
     
     //Callback of validating password
     soapbox.onvalidationresult = function(result) {
@@ -233,6 +238,9 @@ Check whether your html adds RecordRTC.js and MediaStreamRecorder.js at the same
 8. Problem: Cannot use window.saveAs in Chrome
 Use this repo to add FileSaver.js in your resources:
 https://github.com/eligrey/FileSaver.js
+
+9. Problem: _id default field in MongoDB is retrieved but not JSON serializable
+Need to explicitly exclude _id as it is not JSON serializable
 
 
 #To do
