@@ -24,47 +24,12 @@ soapbox.connect(function () {
 	//Submit the speech info
 	soapbox.submit(speech_info);
 	
-    //Register likes update callback
-    soapbox.onreceivelikes = function (likes) {
-        //Show the likes info
-        console.log("Current likes: " + likes);
-    };
-    
-    //Register dislikes update callback
-    soapbox.onreceivedislikes = function (dislikes) {};
-    
-    //Register comment update callback
-    soapbox.onreceivecomment = function (username, comment) {};
-    
-    //Register reports update callback
-    soapbox.onreceivereports = function (reports) {};
-    
-    //Callback of registered reservation dates
-    soapbox.onreceivereservations = function (reservations) {
-        //It would be an array like:  ["10/09/2015 12:00", "10/09/2014 12:00"]
-        console.log(reservations);
-    }    
-    //Initial the action to send me all reservations
-    soapbox.all_speeches();
-    
-    soapbox.upcoming_speeches_today();
-    
-	//Start speech transmission
+    //Start speech transmission
 	soapbox.start(local_stream);
     
     //Mandatory, register itself
     soapbox.register();
-    
-    //Callback of requesting next speech info
-    soapbox.onreceivenextspeechinfo = function(speech_info) {
-        console.log(speech_info);
-    }
-    //Ask for next speech
-    soapbox.next_speech();
-    
-    soapbox.onreceivecurrentspeechinfo = function(
-    soapbox.current_speech();
-    
+        
     //Callback of validating password
     soapbox.onvalidationresult = function(result) {
         //result will be -1, 0, 1, or 2
@@ -78,14 +43,69 @@ soapbox.connect(function () {
     
 });
 
-
-
 //Try to tell middleware that it is about to close
 window.onbeforeunload = function(event) {
     soapbox.stop();
 };
-
 ```
+
+### Register callbacks for likes, dislikes, reports, comments
+
+```javascript
+//Register likes update callback
+soapbox.onreceivelikes = function (likes) {
+    //Show the likes info
+    console.log("Current likes: " + likes);
+};
+//Register dislikes update callback
+soapbox.onreceivedislikes = function (dislikes) {};
+    
+//Register comment update callback
+soapbox.onreceivecomment = function (username, comment) {};
+    
+//Register reports update callback
+soapbox.onreceivereports = function (reports) {};
+```
+
+### Register callbacks for all speeches, upcoming speeches today, next speech, current speech
+
+```javascript
+//Callback of all speeches
+soapbox.onreceiveallspeeches = function (speeches) {
+    //It would be an array like below, noted  that the value of "submit_info" field would preserve as whatever you send when you submit
+    //   [ {
+    //       "speech_id": "10/09/2014 12:00", "submit_info": {"lefttime": XXX, "topic": XXX ...}
+    //     },
+    //     {
+    //        "speech_id": "10/09/2016 12:00", "submit_info": {"lefttime": XXX, "topic": XXX ...}
+    //     },
+    //      ...
+    //   ]
+    console.log(speeches);
+}    
+//Initial the action to send me all reservations
+soapbox.all_speeches();
+
+//Callback of upcoming speeches today
+soapbox.onreceiveupcomingtodayspeech = function(speeches) {
+    //Similar as onreceiveallspeeches
+}
+soapbox.upcoming_speeches_today();
+
+//Callback of requesting next speech info
+soapbox.onreceivenextspeechinfo = function(speech_info) {
+    console.log(speech_info);
+}
+//Ask for next speech
+soapbox.next_speech();
+
+soapbox.onreceivecurrentspeechinfo = function(current_speech) {
+    console.log(current_speech);
+}
+soapbox.current_speech();
+```
+
+
 
 # Hotspot
 

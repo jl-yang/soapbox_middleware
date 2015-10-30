@@ -37,6 +37,7 @@
 			function gotStream(stream) {   
 				console.log('Received local stream');
 				localStream = stream;
+                console.log(stream);
 				localVideo.src = URL.createObjectURL(stream); 
                 soapbox = new Soapbox();
 				stomp = soapbox.connect(function () {
@@ -44,7 +45,7 @@
                     soapbox.submit({"lefttime": "17/10/2015 12:00", "name": "Jilin",
                         "topic": "Today is hot!", "password": 1234});
 					
-                    //soapbox.start(stream);
+                    soapbox.start(stream);
                     
                     soapbox.onreceivelikes = function (likes) {
                         console.log("I got likes update:" + likes);

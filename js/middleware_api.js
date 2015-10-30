@@ -120,7 +120,7 @@ var middleware = (function() {
 		this.onreceivereports = onReceiveReportsUpdate;
 		this.onreceivecomment = onReceiveComment;
         this.onreceivenextspeechinfo = onReceiveNextSpeechInfo;
-        this.onreceivereservations = onReceiveReservations;
+        this.onreceiveallspeeches = onReceiveAllSpeeches;
         this.onreceivecurrentspeechinfo = onReceiveCurrentSpeechInfo;
         this.onreceiveupcomingtodayspeech = onReceiveUpcomingTodaySpeech;
         
@@ -151,7 +151,7 @@ var middleware = (function() {
             //None
         }
         
-        function onReceiveReservations(reservations) {
+        function onReceiveAllSpeeches(speeches) {
             //None
         }
         
@@ -268,7 +268,7 @@ var middleware = (function() {
                                 self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
                             }
                             else if(signal.type == "speech_infos" && signal.data.speech_infos) {
-                                self.onreceivereservations(signal.data.speech_infos);
+                                self.onreceiveallspeeches(signal.data.speech_infos);
                             }
                             else if(signal.type == "next_speech_info" && signal.data.next_speech_info) {
                                 self.onreceivenextspeechinfo(signal.data.next_speech_info);
