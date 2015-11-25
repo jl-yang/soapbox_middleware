@@ -37,9 +37,16 @@ soapbox.connect(function () {
         //1 means valid password but not for next speech
         //0 means invalid password
         //-1 means now no reservation at all 
-    }
+    }    
     //Request validating a password to check if it is for the next speech
     soapbox.validate(password);
+    
+    //Callback of deleting a speech
+    soapbox.ondeletespeech = function(success) {
+        //success is a boolean value: true or false
+    }
+    //Delete a speech based on corresponding password
+    soapbox.delete_speech(password);
     
 });
 
@@ -86,7 +93,7 @@ soapbox.onreceiveallspeeches = function (speeches) {
 //Initial the action to send me all reservations
 soapbox.all_speeches();
 
-//Callback of upcoming speeches today
+//Callback of upcoming speeches today, including today's next speech
 soapbox.onreceiveupcomingtodayspeech = function(speeches) {
     //Similar as onreceiveallspeeches
 }
@@ -105,6 +112,16 @@ soapbox.onreceivecurrentspeechinfo = function(current_speech) {
 soapbox.current_speech();
 ```
 
+### Examples of extracting date and time string from received date_time_string: (Format is "%d/%m/%Y %H:%M")
+```javascript
+var date_time = extract_date_time("25/11/2015 12:00");
+    //Output: {date: "25/11/2015", time: "12:00"}
+//You can access date string via date_time.date, or time string via date_time.time
+
+//More customized options, like extracting exact day, month, year, hour, minute string from it
+extract_date_time("25/11/2015 12:00", {"day": true, "year": true})
+    //Output: {date: "25/11/2015", time: "12:00", day: "25", year: "2015"}
+```
 
 
 # Hotspot
@@ -274,3 +291,5 @@ Then middleware will combine the video/webm and audio/wav streams together, and 
 4. Simple browsing website for archiving the history speech and also the current speech
 5. Move everything to virtual server with public IP and ports.
 
+#Notice
+Run MongoDB instance locally for now: mongod

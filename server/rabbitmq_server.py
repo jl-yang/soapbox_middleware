@@ -598,7 +598,9 @@ class Middleware(object):
         speeches = self.db.get_upcoming_speeches_for_today()
         if speeches is not None:
             self.send(sender, "upcoming_today_speeches", {"upcoming_today_speeches": speeches})
-        
+        else:
+            self.send(sender, "upcoming_today_speeches", {"upcoming_today_speeches": None})
+            
     def is_speech_today(self, speech_info):
         pass
         
@@ -743,7 +745,11 @@ class Middleware(object):
             elif type == "validation" and "password" in data:
                 #Requested by soapbox or audience
                 return_value = self.db.validate(data["password"])
-                self.send(sender, "validation", {"validation": return_value})            
+                self.send(sender, "validation", {"validation": return_value})      
+            
+            elif type == "delete_speech" and "password" in data:
+                success = self.db.delete_speech(data["password"])
+                self.send(sender, "delete_speech", {"delete_speech": success})
             
         if sender == "hotspot" or sender == "audience":
             if sender == "hotspot" and "hotspot_id" not in data:

@@ -3,6 +3,52 @@
 var middleware = (function() {
 	
 	//Reusable stuff
+    
+    /*Useful for extracting date and time separately from a date_time_string
+    example string: "25/11/2015 12:00" ("%d/%m/%Y %H:%M")
+    options: {"day": true, "hour": true}
+    return: {"date": "25/11/2015", "time": "12:00"}
+    */
+    window.extract_date_time = function(date_time_string, options) {
+        var response = {};
+        
+        var res = date_time_string.split(" ");
+        
+        //First contains day, month, year. Second contains hour, minute
+        response.date = res[0];
+        response.time = res[1];
+        
+        var res_1 = res[0].split("/");
+        day = res_1[0];
+        month = res_1[1];
+        year = res_1[2];
+        
+        var res_2 = res[1].split("/");
+        hour = res_2[0];
+        minute = res_2[1];
+        
+        if(typeof options == "undefined") {
+            return response;
+        }
+        if(options.day) {
+            response.day = day;
+        }
+        if(options.month) {
+            response.month = month;
+        }
+        if(options.year) {
+            response.year = year;
+        }
+        if(options.hour) {
+            response.hour = hour;
+        }
+        if(options.minute) {
+            response.minute = minute;
+        }
+        
+        return response;
+    }
+    
     var PeerConnection_Config = {
 		iceServers: [
 		{
@@ -130,6 +176,8 @@ var middleware = (function() {
         this.upcoming_speeches_today = RetrieveUpcomingSpeechesForToday;
         this.validate = ValidateIfPasswordIsForLatestSpeech;
         this.onvalidationresult = onReceiveValidationResult;
+        this.delete_speech = DeleteSpeechBasedOnPassword;
+        this.ondeletespeech = onDeleteSpeech;
         
 		//Record API
 		this.record = recordSpeechInBackground;
@@ -187,9 +235,17 @@ var middleware = (function() {
             sendMessageToMiddleware("upcoming_speeches_today", null);
         }
         
+        function DeleteSpeechBasedOnPassword(password) {
+            sendMessageToMiddleware("delete_speech", {"password": password});
+        }
+        
         function onReceiveValidationResult(result) {
             //result will be 0, 1, 2
             
+        }      
+        
+        function onDeleteSpeech(success) {
+            //success will be true or false
         }
         
 		function submitSpeechInfo(speech_info) {
@@ -281,6 +337,9 @@ var middleware = (function() {
                             }
                             else if(signal.type == "validation" && signal.data.validation) {
                                 self.onvalidationresult(signal.data.validation);
+                            }
+                            else if(signal.type == "delete_speech" && signal.data.delete_speech) {
+                                self.ondeletespeech(signal.data.delete_speech);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -699,6 +758,8 @@ var middleware = (function() {
 		this.comment = addCommentToCurrentSpeech;
         this.submit = submitSpeechInfo;
         this.get_speech_info = getCurrentSpeechInfo;
+        this.delete_speech = DeleteSpeechBasedOnPassword;
+        this.ondeletespeech = onDeleteSpeech;
         
         //Default handler
 		function onReceiveLikesUpdate(likes) {
@@ -711,6 +772,10 @@ var middleware = (function() {
 		        
         function onReceiveSpeechInfo(speech_info) {
             //None
+        }
+        
+        function onDeleteSpeech(success) {
+            //success will be true or false
         }
         
         function sendMessageToMiddleware(type, payload) {
@@ -755,6 +820,10 @@ var middleware = (function() {
             sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}});
         }
         
+        function DeleteSpeechBasedOnPassword(password) {
+            sendMessageToMiddleware("delete_speech", {"password": password});
+        }
+        
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
 			//Parsing config params
 			var configuration = configuration || {};
@@ -793,6 +862,9 @@ var middleware = (function() {
 							}	
                             else if(signal.type == "submit") {
                                 self.onreceivespeechinfo(signal.data.speech_info);
+                            }
+                            else if(signal.type == "delete_speech" && signal.data.delete_speech) {
+                                self.ondeletespeech(signal.data.delete_speech);
                             }
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});                    
