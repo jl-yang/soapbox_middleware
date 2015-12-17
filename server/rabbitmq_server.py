@@ -80,6 +80,11 @@ class dbHandler:
         password = submit_info.get(SPEECH_INFO_KEY_PASSWORD)
         start_time_str = submit_info.get(SPEECH_INFO_KEY_ID)
         
+        #More validations here
+        if speaker_name == "" or speech_topic == "" or password == "" or start_time_str == "":
+            print "Error: some values in submit_info is missing"
+            return None
+        
         #Save the speech starting dates and corresponding password. Use datetime object as key
         _date_object = datetime.datetime.strptime(start_time_str, SPEECH_INFO_ID_FORMAT)
         speech = {
@@ -158,11 +163,12 @@ class dbHandler:
         if self.speeches.find().count() == 0:
             return_value = -1
         else:                   
-            if self.speeches.find_one({"password": password}).count() == 1:
+            if self.speeches.find_one({"password": password}) is not None:
                 #password is valid, but maybe not for the exact next speech
                 return_value = 1
-                #Check if it is exact next speech password
-                if self.next_speech().password == password:
+                #Check if it is exact next speech password (Excluding future but not next speech, or history speech)
+                next_speech = self.next_speech()
+                if next_speech is not None and next_speech["password"] == password:
                     return_value = 2
             else:
                 #password is not valid at all
@@ -179,8 +185,18 @@ class dbHandler:
         
     #next speech is the earliest unused one, is_used will be true once a speech becomes ongoing
     def next_speech(self):
-        #Sort the speeches to find the earliest unused speech
-        speeches = self.speeches.find({"is_used": False}, {"_id": False})
+        #Sort the speeches to find the speech: earliest unused, and also no later than curren time 
+        speeches = self.speeches.find(
+            {
+                "is_used": False,
+                "speech_id": {
+                    "$gt": datetime.datetime.now() #Same as today()
+                }
+            },
+            {
+                "_id": False
+            }
+        )
         if speeches is not None:
             speeches.sort("speech_id")
             for speech in speeches:
@@ -212,8 +228,8 @@ class dbHandler:
             {
                 "is_used": False,
                 "speech_id": {
-                    "$lt": datetime.datetime.today() + datetime.timedelta(days=1), 
-                    "$gt": datetime.datetime.today() + datetime.timedelta(days=-1)
+                    "$lt": datetime.datetime.strptime(datetime.datetime.today().strftime("%d/%m/%Y"), "%d/%m/%Y") + datetime.timedelta(days=1), 
+                    "$gt": datetime.datetime.now()
                 }
             },
             {
@@ -225,7 +241,9 @@ class dbHandler:
         if speeches is not None:
             speeches.sort("speech_id")
             for speech in speeches:
-                return_speeches.append(speech["submit_info"])
+                #return_speeches.append(speech["submit_info"])
+                speech["speech_id"] = self._dt_to_string(speech["speech_id"])
+                return_speeches.append(speech)
             if len(return_speeches) != 0:
                 return return_speeches
             else:
@@ -299,7 +317,7 @@ class dbHandler:
 class Middleware(object):
     
     #URL
-    HOTSPOT_WEBSITE_URL = 'http://10.20.47.62/hotspots19/ubi.html'
+    HOTSPOT_WEBSITE_URL = 'http://10.20.218.79/hotspots21/ubi.html'
     HOTSPOT_WEBSITE_OULU = 'http://www.ubioulu.fi'
     HOTSPOT_ADS_URL = 'http://10.20.47.62/ads19/ads.html'
     RABBITMQ_SERVER_URL = "bunny.ubioulu.fi"
@@ -397,8 +415,9 @@ class Middleware(object):
         self.hotspots = []
         
         #Database handler
-        self.db = dbHandler(True) if not self.ENABLE_TEST_HOTSPOT else dbHandler(False)
-    
+        #self.db = dbHandler(True) if not self.ENABLE_TEST_HOTSPOT else dbHandler(False)
+        self.db = dbHandler(False)
+        
     def clean_database(self):
         self.db.reset()
     

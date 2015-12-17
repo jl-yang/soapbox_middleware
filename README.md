@@ -26,6 +26,8 @@ soapbox.connect(function () {
 	
     //Start speech transmission
 	soapbox.start(local_stream);
+    //start a new speech immediately
+    //soapbox.start(local_stream, submit_info)
     
     //Mandatory, register itself
     soapbox.register();
