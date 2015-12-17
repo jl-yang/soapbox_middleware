@@ -24,8 +24,11 @@ var middleware = (function() {
         year = res_1[2];
         
         var res_2 = res[1].split("/");
-        hour = res_2[0];
-        minute = res_2[1];
+        //res_2 hour+minute
+        res_3 = res_2[0].split(":");
+        console.log(res_3);
+        hour = res_3[0];
+        minute = res_3[1];
         
         if(typeof options == "undefined") {
             return response;

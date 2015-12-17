@@ -253,6 +253,9 @@ class dbHandler:
             
     #Return total likes
     def like_current_speech(self, sender, timestamp):
+        if self.ongoing_speech() is None:
+            print "like error"
+            return None
         speech_id = self.ongoing_speech()["speech_id"]
         self.likes.insert_one({
             "speech_id": speech_id,
@@ -263,6 +266,9 @@ class dbHandler:
         
     #Return total dislikes
     def dislike_current_speech(self, sender, timestamp):
+        if self.ongoing_speech() is None:
+            print "dislike error"
+            return None
         speech_id = self.ongoing_speech()["speech_id"]
         self.dislikes.insert_one({
             "speech_id": speech_id,
