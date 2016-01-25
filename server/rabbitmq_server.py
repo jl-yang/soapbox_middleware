@@ -25,8 +25,9 @@ class dbHandler:
     dislikes = None
     reports = None
     comments = None
+    users = None
     is_debug = None
-        
+    
     def __init__(self, is_debug):
         self.client = MongoClient()
         
@@ -41,7 +42,8 @@ class dbHandler:
         self.dislikes = self.db.dislikes
         self.reports = self.db.reports
         self.comments = self.db.comments
-    
+        self.users = self.db.users
+        
     def close(self):
         self.client.close()
     
@@ -102,7 +104,8 @@ class dbHandler:
             "password": password,
             "speaker_name": speaker_name,
             "speech_topic": speech_topic,
-            "submit_info": submit_info
+            "submit_info": submit_info,
+            "current_users": 0
         }        
         self.speeches.insert_one(speech)
         return _date_object
@@ -254,7 +257,51 @@ class dbHandler:
                 return None
         else:
             return None
-            
+    
+    def add_one_user(self, timestamp):
+        if self.ongoing_speech() is None:
+            print "add audience error"
+            return None
+        speech_id = self.ongoing_speech()["speech_id"]
+        #Insert separate user online record in users document
+        self.users.insert_one({
+            "speech_id": speech_id,
+            "timestamp": timestamp,
+            "action": "online"
+        })
+        #Modify data in speeches document
+        result = self.speeches.update_one(
+            {
+                "speech_id": speech_id
+            },
+            {
+                "$inc": {
+                    "current_users": 1
+        }})
+        return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
+    
+    def minus_one_user(self, timestamp):
+        if self.ongoing_speech() is None:
+            print "add audience error"
+            return None
+        speech_id = self.ongoing_speech()["speech_id"]
+        #Insert separate user offline record in users document
+        self.users.insert_one({
+            "speech_id": speech_id,
+            "timestamp": timestamp,
+            "action": "offline"
+        })
+        #Modify data in speeches document
+        result = self.speeches.update_one(
+            {
+                "speech_id": speech_id
+            },
+            {
+                "$inc": {
+                    "current_users": -1
+        }})
+        return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
+    
     #Return total likes
     def like_current_speech(self, sender, timestamp):
         if self.ongoing_speech() is None:
@@ -301,6 +348,13 @@ class dbHandler:
             COMMENT_KEY_NAME: name,
             COMMENT_KEY_CONTENT: content
         })
+    
+    def get_speech_users(self, speech_id):
+        speech = self.speeches.find_one({"speech_id": speech_id})
+        if speech is not None:
+            return speech.current_users
+        else:
+            return None
     
     def get_speech_likes(self, speech_id):
         return self.likes.find({"speech_id": speech_id}).count()
@@ -772,7 +826,6 @@ class Middleware(object):
                     if "hotspot_id" in data:
                         self.send_soapbox("unregister", {"hotspot_id": data["hotspot_id"]})
                 
-                
         if sender == "audience":                
             if type == "comment" and "comment" in data:
                 #Print out the comment now
@@ -783,8 +836,23 @@ class Middleware(object):
                 self.db.comment_current_speech(ts, sender, _username, _content)
                 self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
                 self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
-                           
-                      
+            
+            elif type == "online":
+                users = self.db.add_one_user(ts)
+                if users is not None:
+                    self.send_soapbox("current_users", {"current_users": users})
+                    self.send_hotspot("current_users", {"current_users": users})
+                    self.send_audience("current_users", {"current_users": users})
+                    self.send_virtual("current_users", {"current_users": users})
+            
+            elif type == "offline":
+                users = self.db.minus_one_user(ts)
+                if users is not None:
+                    self.send_soapbox("current_users", {"current_users": users})
+                    self.send_hotspot("current_users", {"current_users": users})
+                    self.send_audience("current_users", {"current_users": users})
+                    self.send_virtual("current_users", {"current_users": users})
+            
         if sender == "soapbox" or sender == "audience":    
             if type == "submit" and "speech_info" in data and \
                 SPEECH_INFO_KEY_ID in data["speech_info"] and \

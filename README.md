@@ -173,6 +173,17 @@ audience.connect(function () {
 
     //You can comment here 
     audience.comment("user2015", "I want to make a comment now!");
+    
+    //Online for a speech
+    audience.online();
+    
+    //Offline when close the connection
+    audience.offline();
+    
+    //Callback of current users 
+    audience.onreceivecurrentusers = function (users) {
+        //users is the amount of current users for current speech
+    }
 });
 ```
 

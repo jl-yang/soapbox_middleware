@@ -182,6 +182,12 @@ var middleware = (function() {
         this.delete_speech = DeleteSpeechBasedOnPassword;
         this.ondeletespeech = onDeleteSpeech;
         
+        this.onreceivecurrentusers = onReceiveCurrentUsers;
+        
+		function onReceiveCurrentUsers(count) {
+            //None
+        }
+        
 		//Record API
 		this.record = recordSpeechInBackground;
 		
@@ -343,6 +349,9 @@ var middleware = (function() {
                             }
                             else if(signal.type == "delete_speech" && signal.data.delete_speech) {
                                 self.ondeletespeech(signal.data.delete_speech);
+                            }
+                            else if (signal.type == "current_users" && signal.data.current_users) {
+                                self.onreceivecurrentusers(signal.data.current_users);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -535,6 +544,12 @@ var middleware = (function() {
 		this.onreceivecomment = onReceiveComment;
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         
+        this.onreceivecurrentusers = onReceiveCurrentUsers;
+        
+		function onReceiveCurrentUsers(count) {
+            //None
+        }
+        
         //Default handler
 		function onReceiveLikesUpdate(likes) {
 			//None
@@ -637,6 +652,9 @@ var middleware = (function() {
                             }
                             else if(signal.type == "current_speech_info" && signal.data.current_speech_info) {
                                 self.onreceivespeechinfo(signal.data.current_speech_info);
+                            }
+                            else if (signal.type == "current_users" && signal.data.current_users) {
+                                self.onreceivecurrentusers(signal.data.current_users);
                             }
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -751,6 +769,8 @@ var middleware = (function() {
 		
         this.itself = "audience";
 		this.connect = connectMiddleware;
+        this.online = addMyselfToActiveUsers;
+        this.offline = deleteMyselfFromActiveUsers;
 		this.send = sendMessageToMiddleware;
 		this.like = addLike;
 		this.dislike = addDislike;
@@ -763,9 +783,14 @@ var middleware = (function() {
         this.get_speech_info = getCurrentSpeechInfo;
         this.delete_speech = DeleteSpeechBasedOnPassword;
         this.ondeletespeech = onDeleteSpeech;
+        this.onreceivecurrentusers = onReceiveCurrentUsers;
         
         //Default handler
-		function onReceiveLikesUpdate(likes) {
+		function onReceiveCurrentUsers(count) {
+            //None
+        }
+        
+        function onReceiveLikesUpdate(likes) {
 			//None
 		}
 		
@@ -796,6 +821,14 @@ var middleware = (function() {
 				self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
 			}
 		}      
+        
+        function addMyselfToActiveUsers() {
+            sendMessageToMiddleware("online");
+        }
+        
+        function deleteMyselfFromActiveUsers() {
+            sendMessageToMiddleware("offline");
+        }
         
         function getCurrentSpeechInfo() {
             //This will cause middleware to send "submit" speech info to audience
@@ -869,6 +902,9 @@ var middleware = (function() {
                             else if(signal.type == "delete_speech" && signal.data.delete_speech) {
                                 self.ondeletespeech(signal.data.delete_speech);
                             }
+                            else if (signal.type == "current_users" && signal.data.current_users) {
+                                self.onreceivecurrentusers(signal.data.current_users);
+                            }
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});                    
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
@@ -890,6 +926,11 @@ var middleware = (function() {
 		this.connect = connectMiddleware;
         
 		this.onreceivelink = onReceiveLink;
+        this.onreceivecurrentusers = onReceiveCurrentUsers;
+        
+		function onReceiveCurrentUsers(count) {
+            //None
+        }
         
         function onReceiveLink(link) {
             //Get the link to open up a new hotspot website
@@ -925,11 +966,15 @@ var middleware = (function() {
 							{	
                                 console.log("Messages routing error!");
 								return signal;
-							}							
+							}		
+                            
 							//Assume soapbox will fire the offer according to middleware's request
 							if (signal.type == "start_broadcast" && signal.data.start_broadcast) {
                                 self.onreceivelink(signal.data.start_broadcast);
 							} 
+                            else if (signal.type == "current_users" && signal.data.current_users) {
+                                self.onreceivecurrentusers(signal.data.current_users);
+                            }
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
 					});	
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
