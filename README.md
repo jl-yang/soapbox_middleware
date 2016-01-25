@@ -191,11 +191,6 @@ virtual.connect(function () {
         //Link for opening up a new hotspot website
     };
 });
-
-//Make sure now you are already connected, otherwise it could fail
-hotspot.like()
-hotspot.dislike()
-hotspot.report()
 ```
 
 
