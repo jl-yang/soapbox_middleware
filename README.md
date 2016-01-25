@@ -176,6 +176,27 @@ audience.connect(function () {
 });
 ```
 
+# Virtual soapbox
+
+##How to receive the speech
+Example:
+```javascript
+//API object
+var virtual = new Virtual();
+
+//Connect to the middleware(signaling server)
+//Four params: onConnect, onError, onReceiveMessage, ConfigParams
+virtual.connect(function () {
+	virtual.onreceivelink = function (link) {
+        //Link for opening up a new hotspot website
+    };
+});
+
+//Make sure now you are already connected, otherwise it could fail
+hotspot.like()
+hotspot.dislike()
+hotspot.report()
+```
 
 
 ##List of STUN server (https://gist.github.com/zziuni/3741933)

@@ -19,16 +19,16 @@ var middleware = (function() {
         response.time = res[1];
         
         var res_1 = res[0].split("/");
-        day = res_1[0];
-        month = res_1[1];
-        year = res_1[2];
+        var day = res_1[0];
+        var month = res_1[1];
+        var year = res_1[2];
         
         var res_2 = res[1].split("/");
         //res_2 hour+minute
-        res_3 = res_2[0].split(":");
-        console.log(res_3);
-        hour = res_3[0];
-        minute = res_3[1];
+        var res_3 = res_2[0].split(":");
+        
+        var hour = res_3[0];
+        var minute = res_3[1];
         
         if(typeof options == "undefined") {
             return response;
@@ -863,8 +863,8 @@ var middleware = (function() {
 							else if(signal.type == "dislikes") {
 								self.onreceivedislikes(signal.data.dislikes);
 							}	
-                            else if(signal.type == "submit") {
-                                self.onreceivespeechinfo(signal.data.speech_info);
+                            else if(signal.type == "current_speech_info") {
+                                self.onreceivespeechinfo(signal.data.current_speech_info);
                             }
                             else if(signal.type == "delete_speech" && signal.data.delete_speech) {
                                 self.ondeletespeech(signal.data.delete_speech);
@@ -879,6 +879,120 @@ var middleware = (function() {
 		}
 	};
 	
+    //API for Virtual soapboax
+	window.Virtual = function() {
+        var self = this;
+		var ws, stomp, send_queue;
+		
+        var peers = {};
+        this.peers = peers;
+        this.itself = "virtual";
+		this.connect = connectMiddleware;
+        
+		this.onreceivelink = onReceiveLink;
+        
+        function onReceiveLink(link) {
+            //Get the link to open up a new hotspot website
+        }
+        
+		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
+			//Parsing config params
+			var configuration = configuration || {};
+			var server_url = configuration.server_url || 'bunny.ubioulu.fi:15674/stomp';
+			self.send_queue = configuration.send_queue || "/exchange/soapbox/middleware";
+			var receive_queue = configuration.receive_queue || "/exchange/soapbox/soapbox";
+			var user_name = configuration.user_name || 'soapbox';
+			var password = configuration.password || '7rD7zL8RtckRzEXD';
+			var vhost = configuration.vhost || '/';
+			var debug = configuration.debug || true;
+			
+			//Stomp initialization
+			ws = new SockJS(server_url);
+            self.ws = ws;
+			self.stomp = Stomp.over(ws);
+			self.stomp.heartbeat.outgoing = 0;
+			self.stomp.heartbeat.incoming = 0;
+			if(!debug)
+				self.stomp.debug = null;
+			
+			self.stomp.connect(user_name, password, 
+				function(connected_frame) {                    
+					var id = self.stomp.subscribe(receive_queue, 
+						//Handling incoming messages
+						function(message) {                            
+							var signal = JSON.parse(message.body);						
+							if(signal.receiver !== 'virtual')
+							{	
+                                console.log("Messages routing error!");
+								return signal;
+							}							
+							//Assume soapbox will fire the offer according to middleware's request
+							if (signal.type == "start_broadcast" && signal.data.start_broadcast) {
+                                self.onreceivelink(signal.data.start_broadcast);
+							} 
+							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
+					});	
+					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
+			}, function(error) {
+				console.log(error.toString());
+				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
+			}, vhost);
+			
+		}
+		
+        function registerInMiddleware(){
+            sendMessageToMiddleware("register", null);
+        }
+        
+        //Only tells middleware that it wants to start broadcasting now, middleware will ask for offer
+		function startBroadcast(stream, speech_info) {
+            localStream = stream;
+            sendMessageToMiddleware("start_broadcast", typeof speech_info == "undefined" ? null : {"speech_info": speech_info});
+        }
+        
+        function stopBroadcast() {
+            sendMessageToMiddleware("stop_broadcast", null);
+        }
+        
+        //Called when middleware sends a request_offer message. Offer will be requested only when new hotspot website is online
+        function createOffer(hotspot_id) {
+            var options = {
+                "hotspot_id": hotspot_id,
+                "stream": localStream,
+                //Got local ice candidates
+                "onicecandidate": function (event) {
+                    sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
+                    
+                },
+                "gotLocalDescription": function (description) {      
+                    sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': hotspot_id});
+                },
+                "sdpConstraints": sdpConstraints
+            };            
+            peers[hotspot_id] = Offer.createOffer(options);			
+		}
+		
+        function sendMessageToMiddleware(type, payload) {     
+            var message_object = {
+                'sender': self.itself,
+                'receiver': "middleware",
+                'timestamp': new Date().toISOString(),
+                'type': type,
+                'data': payload || {}
+            };
+            if(self.stomp.connected !== true) {
+                console.log("Connection to middleware is not on yet. Send failure.");
+                return;
+            } 
+            else 
+            {
+                self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
+            }
+        }
+        
+		
+    };
+    
 })();
 
 

@@ -42,6 +42,9 @@ class dbHandler:
         self.reports = self.db.reports
         self.comments = self.db.comments
     
+    def close(self):
+        self.client.close()
+    
     def _dt_to_string(self, dt_object):
         return dt_object.strftime(SPEECH_INFO_ID_FORMAT)         
     
@@ -130,6 +133,7 @@ class dbHandler:
         return True if result.matched_count == 1 and result.modified_count == 1 else False
     
     def speech_start(self, speech_id, timestamp):
+        print speech_id
         result = self.speeches.update_one(
             {
                 "speech_id": speech_id
@@ -179,7 +183,7 @@ class dbHandler:
     def ongoing_speech(self):
         speech = self.speeches.find_one({"status": "ongoing"}, {"_id": False})
         if speech is not None:
-            return {"speech_id": self._dt_to_string(speech["speech_id"]), "submit_info": speech["submit_info"]}
+            return {"speech_id": speech["speech_id"], "submit_info": speech["submit_info"]}
         else:
             return None
         
@@ -200,7 +204,7 @@ class dbHandler:
         if speeches is not None:
             speeches.sort("speech_id")
             for speech in speeches:
-                speech["speech_id"] = self._dt_to_string(speech["speech_id"])
+                #speech["speech_id"] = self._dt_to_string(speech["speech_id"])
                 return speech 
             return None
         else:
@@ -348,6 +352,7 @@ class Middleware(object):
     SOAPBOX_ROUTING_KEY = "soapbox"
     HOTSPOT_ROUTING_KEY = "hotspot"
     AUDIENCE_ROUTING_KEY = "audience"
+    VIRTUAL_ROUTING_KEY = "virtual"
     
     # Test hotspot exchange. 
     ENABLE_TEST_HOTSPOT = False    
@@ -433,6 +438,7 @@ class Middleware(object):
         self._connection.ioloop.start()
 
     def stop(self):
+        self.db.close()
         self._connection.close()
         self._connection.ioloop.start()
 
@@ -479,6 +485,8 @@ class Middleware(object):
             self.send_hotspot(type, data)
         elif sender == "audience":
             self.send_audience(type, data)
+        elif sender == "virtual":
+            self.send_virtual(type, data)
     
     def send_soapbox(self, type, data): 
         if data is None: 
@@ -542,7 +550,28 @@ class Middleware(object):
                                     routing_key=self.AUDIENCE_ROUTING_KEY, 
                                     body=json.dumps(msgObject))        
         self._print_formated_message(msgObject, False)
-    
+        
+    def send_virtual(self, type, data): 
+        if data is None: 
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "virtual",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type
+            }
+        else:
+            msgObject = {
+                "sender": "middleware",
+                "receiver": "virtual",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "type": type,
+                "data": data
+            }
+        self._channel.basic_publish(exchange=self.PROJECT_EXCHANGE, 
+                                    routing_key=self.VIRTUAL_ROUTING_KEY, 
+                                    body=json.dumps(msgObject))
+        self._print_formated_message(msgObject, False) 
+        
     def start_waiting_broadcast(self):
         #Turn to full screen mode now to another ads website
         pass
@@ -637,7 +666,14 @@ class Middleware(object):
         
         type, sender, receiver, data, ts = self._print_formated_message(msgObj)     
                 
-        if sender == "soapbox":
+        if sender == "soapbox" or sender == "virtual":
+            #If the other soapbox has already registered, then its role will be changed into a receiver
+            if type == "is_capable":
+                if self.soapbox.get("id") is not None:
+                    self.send(sender, "is_capable", {"is_capable": False})
+                else:
+                    self.send(sender, "is_capable", {"is_capable": True})
+                
             #Control broadcast in test hotspot according to first submit info from soapbox website
             if type == "register":
                 _uuid = self._create_unique_uuid()
@@ -669,6 +705,10 @@ class Middleware(object):
                     
                 #Just a message for all audience, so audience can comment now
                 self.send_audience("start_broadcast", None)
+                
+                #The hotspot link for virtual soapbox, if it is the physical soapbox broadcasting
+                if sender == "soapbox":
+                    self.send_virtual("start_broadcast", {"start_broadcast": self.HOTSPOT_WEBSITE_URL})
                 
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
@@ -740,7 +780,7 @@ class Middleware(object):
                 _username = data["comment"][COMMENT_KEY_NAME]
                 _content = data["comment"][COMMENT_KEY_CONTENT]
                 #Add comment to list
-                self.db.comment_speech(self.db.ongoing_speech()["speech_id"], ts, sender, _username, _content)
+                self.db.comment_current_speech(ts, sender, _username, _content)
                 self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
                 self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
                            
