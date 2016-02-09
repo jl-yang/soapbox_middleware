@@ -351,8 +351,8 @@ class dbHandler:
     
     def get_speech_users(self, speech_id):
         speech = self.speeches.find_one({"speech_id": speech_id})
-        if speech is not None:
-            return speech.current_users
+        if speech is not None and "current_users" in speech:
+            return speech["current_users"]
         else:
             return None
     
@@ -371,7 +371,7 @@ class dbHandler:
         if comments is not None:
             for comment in comments:                
                 return_comments.append({
-                    COMMENT_KEY_NAME: comment["name"], 
+                    COMMENT_KEY_NAME: comment["username"], 
                     COMMENT_KEY_CONTENT: comment["content"]
                 })
             return return_comments
@@ -475,9 +475,14 @@ class Middleware(object):
         self.soapbox = {}
         self.IS_SOAPBOX_READY = True
         self.request_offer_threads = []
+        #TODO - Plus checking certain conditions of whether the user can start a speech right now 
+        self.IS_SPEECH_ONGING = False
         
         #Hotspot info
         self.hotspots = []
+        
+        #Virtual info
+        self.virtuals = []
         
         #Database handler
         #self.db = dbHandler(True) if not self.ENABLE_TEST_HOTSPOT else dbHandler(False)
@@ -666,22 +671,27 @@ class Middleware(object):
                     "{0: <15}".format(sender), \
                     ">>", \
                     "{0: >15}".format(receiver)
-            
+        
         return type, sender, receiver, data, ts
         
-    def _threaded_send_request_offer(self, id):
+    def _threaded_send_request_offer(self, receiver_id, speaker, virtual_speaker_id):
         lock = Lock()
         lock.acquire()
         try:
             while self.IS_SOAPBOX_READY != True:
                 pass
             self.IS_SOAPBOX_READY = False
-            self.send_soapbox("request_offer", {"hotspot_id": id});  
+            
+            #Differ whether it is from virtual or soapbox
+            if speaker == "soapbox":
+                self.send_soapbox("request_offer", {"hotspot_id": receiver_id})
+            elif speaker == "virtual" and virtual_speaker_id is not None:
+                self.send_virtual("request_offer", {"receiver_id": id, "speaker_id": virtual_speaker_id})
         finally:
             lock.release()
     
-    def threaded_send_request_offer(self, id):        
-        thread = Thread(target=self._threaded_send_request_offer, args= (id,))
+    def threaded_send_request_offer(self, receiver_id, speaker, virtual_speaker_id):        
+        thread = Thread(target=self._threaded_send_request_offer, args= (receiver_id, speaker, virtual_speaker_id))
         thread.setDaemon(True)        
         thread.start()
         
@@ -720,7 +730,7 @@ class Middleware(object):
         
         type, sender, receiver, data, ts = self._print_formated_message(msgObj)     
                 
-        if sender == "soapbox" or sender == "virtual":
+        if sender == "soapbox":
             #If the other soapbox has already registered, then its role will be changed into a receiver
             if type == "is_capable":
                 if self.soapbox.get("id") is not None:
@@ -740,7 +750,7 @@ class Middleware(object):
                 print "Current hotspots: ", self.hotspots      
                 
                 for hotspot in self.hotspots:
-                    self.threaded_send_request_offer(hotspot["id"])
+                    self.threaded_send_request_offer(hotspot["id"], "soapbox", None)
                 
             elif type == "offer" and "sdp" in data and "hotspot_id" in data:
                 self.send_hotspot("offer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
@@ -749,7 +759,7 @@ class Middleware(object):
                 self.send_hotspot("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
             
             elif type == "start_broadcast":    
-                #If no datetime is provided, then by default start the next upcoming speech
+                #If no data is provided, then by default start the next upcoming speech
                 next_speech = self.db.next_speech()
                 if "speech_info" not in data and next_speech is not None:
                     self.db.speech_start(next_speech["speech_id"], ts)
@@ -767,6 +777,7 @@ class Middleware(object):
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_WEBSITE_URL)
+                
             
             #Stop speech transmission in hotspot website according to message from soapbox website
             elif type == "stop_broadcast":   
@@ -806,7 +817,7 @@ class Middleware(object):
                         self.send_hotspot("comment", {"comment": {"username": comment[COMMENT_KEY_NAME], "content": comment[COMMENT_KEY_CONTENT]}, "hotspot_id": _hotspot_id})
                 
                 #Request an offer for hotspot client                    
-                self.threaded_send_request_offer(_hotspot_id) 
+                self.threaded_send_request_offer(_hotspot_id, "soapbox", None) 
                  
             elif type == "answer" and "sdp" in data and "hotspot_id" in data:
                 self.send_soapbox("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
@@ -912,6 +923,103 @@ class Middleware(object):
                 
                 print "[*] Reports updated: ", reports
                 
+        if sender == "virtual":
+            if type == "register" and "name" in data:      
+                _virtual_id = self._create_unique_uuid()
+                self.virtuals.append({"id": _virtual_id, "name": data["name"]})
+                self.send_virtual("register", {"virtual_id": _virtual_id})
+                
+                ongoing = self.db.ongoing_speech()   
+                if ongoing is not None:
+                    #Also send speech info              
+                    self.send_virtual("current_speech_info", {"current_speech_info": ongoing["submit_info"], "virtual_id": send_virtual})
+                    #Also send likes, dislikes info of ongoing speech                
+                    self.send_virtual("likes", {"likes": self.db.get_speech_likes(ongoing["speech_id"]), "virtual_id": send_virtual})
+                    self.send_virtual("dislikes", {"dislikes": self.db.get_speech_dislikes(ongoing["speech_id"]), "virtual_id": send_virtual})
+                    for comment in self.db.get_speech_comments(ongoing["speech_id"]):
+                        self.send_virtual("comment", {"comment": {"username": comment[COMMENT_KEY_NAME], "content": comment[COMMENT_KEY_CONTENT]}, "virtual_id": send_virtual})
+                
+                #Request an offer for virtual client   
+                if self.virtual_speaker_id is not None:
+                    self.threaded_send_request_offer(_virtual_id, "virtual", self.virtual_speaker_id) 
+            
+            elif type == "unregister":
+                if "virtual_id" not in data:
+                    print "Unknown virtual offline."
+                    return
+                #Do as a normal hotspot like
+                elif data["virtual_id"] != self.virtual_speaker_id:
+                    for i, virtual in enumerate(self.virtuals):
+                        if virtual["id"] == data["virtual_id"]:
+                            self.virtuals.pop(i)
+                            break
+                    #This should be fixed by middleware api
+                    self.send_virtual("unregister", {"virtual_id": data["virtual_id"]})
+                elif data["virtual_id"] == self.virtual_speaker_id:
+                    #stop_broadcast action has handled related stuff
+                    return 
+                    
+            elif type == "start_broadcast" and data["id"] is not None:
+                if self.virtual_speaker_id is not None or self.db.ongoing_speech() is not None:
+                    print "Cannot start a speech right now"
+                    return
+                
+                #If no data is provided, then by default start the next upcoming speech
+                next_speech = self.db.next_speech()
+                if "speech_info" not in data and next_speech is not None:
+                    self.db.speech_start(next_speech["speech_id"], ts)
+                elif "speech_info" in data and data["speech_info"] is not None :
+                    #Start speech immediately, no speech info is submitted, should have other info later
+                    self.db.speech_start(self.db.add_speech(data["speech_info"], True), ts)
+                    
+                    #Store the id as virtual_speaker_id
+                    self.virtual_speaker_id = data["id"]
+                    
+                    for virtual in self.virtuals:
+                        self.threaded_send_request_offer(virtual["id"], "virtual", self.virtual_speaker_id)
+                                   
+                #Just a message for all audience, so audience can comment now
+                self.send_audience("start_broadcast", None)
+            
+            #Stop speech transmission in hotspot website according to message from soapbox website
+            elif type == "stop_broadcast":   
+                if "virtual_id" in data:
+                    ongoing = self.db.ongoing_speech()
+                    if ongoing is not None:
+                        self.db.speech_stop(ongoing["speech_id"], ts)
+                    
+                    #Just a message for all audience
+                    self.send_audience("stop_broadcast", None)
+                    #Send stop message to all hotspot
+                    self.send_hotspot("stop_broadcast", None)   
+
+                    self.virtual_speaker_id = None
+                    
+                    #self.send_virtual("stop_broadcast", None)
+                #else:
+                    #Other virtual clients should handle this 
+                    
+                    
+                #self.IS_SOAPBOX_READY = False
+            
+            #This is from a virtual speaker
+            elif type == "offer" and "sdp" in data and "virtual_id" in data and data["virtual_id"] == self.virtual_speaker_id:
+                self.send_virtual("offer", {"sdp": data["sdp"], "virtual_id": data["virtual_id"]})
+                
+            elif type == "ice-candidate" and "ice" in data and "virtual_id" in data and data["virtual_id"] == self.virtual_speaker_id:                
+                self.send_virtual("ice-candidate", {"ice": data["ice"], "virtual_id": data["virtual_id"]})
+            
+            elif type == "ready":
+                self.IS_SOAPBOX_READY = True        
+            
+            #This is from a virtual receiver client
+            elif type == "answer" and "sdp" in data and "virtual_id" in data and data["virtual_id"] != self.virtual_speaker_id:
+                self.send_virtual("answer", {"sdp": data["sdp"], "virtual_id": data["virtual_id"]})
+                
+            elif type == "ice-candidate" and "ice" in data and "virtual_id" in data and data["virtual_id"] != self.virtual_speaker_id:
+                self.send_virtual("ice-candidate", {"ice": data["ice"], "virtual_id": data["virtual_id"]})
+            
+            
     #Test hotspot    
     def on_exchange_declared(self, frame):
         self._channel.queue_declare(callback=self.on_queue_declared, 

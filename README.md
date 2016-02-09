@@ -21,6 +21,9 @@ var soapbox = new Soapbox();
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 soapbox.connect(function () {
+    //Mandatory, register itself
+    soapbox.register();
+
 	//Submit the speech info
 	soapbox.submit(speech_info);
 	
@@ -29,9 +32,6 @@ soapbox.connect(function () {
     //start a new speech immediately
     //soapbox.start(local_stream, submit_info)
     
-    //Mandatory, register itself
-    soapbox.register();
-        
     //Callback of validating password
     soapbox.onvalidationresult = function(result) {
         //result will be -1, 0, 1, or 2
@@ -195,13 +195,35 @@ Example:
 //API object
 var virtual = new Virtual();
 
+//Setup the video object for displaying remote stream
+var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element
+virtual.setup(remoteVideo);
+
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 virtual.connect(function () {
-	virtual.onreceivelink = function (link) {
-        //Link for opening up a new hotspot website
-    };
+    //First it needs to register
+    virtual.register();
+    
+    //If it wants to start a speech right now
+    virtual.start(local_stream, submit_info); 
+    
+    //Try to tell middleware that it is about to close
+    virtual.stop(); 
 });
+
+//Register callbacks
+virtual.onreceivespeechinfo = function(speech_info) {};
+virtual.onreceivecomment = function(username, comment) {};
+virtual.onreceivelikes = function(likes){};
+virtual.onreceivedislikes = function(dislikes){};
+virtual.onreceivereports = function(reports){};
+virtual.onreceivecurrentusers = function(users){};  //TODO - using online and offline in virtual to handle this info
+
+virtual.comment("Jilin", "I want to comment now");
+virtual.like();
+virtual.dislike();
+virtual.report();
 ```
 
 
