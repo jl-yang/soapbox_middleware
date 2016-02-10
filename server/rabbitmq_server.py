@@ -960,7 +960,7 @@ class Middleware(object):
                     #stop_broadcast action has handled related stuff
                     return 
                     
-            elif type == "start_broadcast" and data["id"] is not None:
+            elif type == "start_broadcast" and "virtual_id" in data:
                 if self.virtual_speaker_id is not None or self.db.ongoing_speech() is not None:
                     print "Cannot start a speech right now"
                     return

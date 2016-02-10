@@ -959,15 +959,15 @@ var middleware = (function() {
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         
         function addLike() {
-			sendMessageToMiddleware("like");
+			sendMessageToMiddleware("like", "virtual_id": virtual_id);
 		}
 		
 		function addDislike() {
-			sendMessageToMiddleware("dislike");
+			sendMessageToMiddleware("dislike", "virtual_id": virtual_id);
 		}
 		
 		function reportInappropriateContent() {
-			sendMessageToMiddleware("report");
+			sendMessageToMiddleware("report", "virtual_id": virtual_id);
 		}
         
 		function onReceiveCurrentUsers(count) {
@@ -1074,7 +1074,7 @@ var middleware = (function() {
                             if (signal.type == "answer" && signal.data.sdp && signal.data.virtual_id) {
                                 peers[signal.data.virtual_id].setRemoteDescription(signal.data.sdp,
                                     function() {
-                                        sendMessageToMiddleware("ready", null);
+                                        sendMessageToMiddleware("ready", {"virtual_id": virtual_id});
                                 });						
 							} 
                             //Act as speaker
@@ -1125,7 +1125,7 @@ var middleware = (function() {
 		}
         
         function stopBroadcast() {
-            sendMessageToMiddleware("stop_broadcast", null);
+            sendMessageToMiddleware("stop_broadcast", {"virtual_id": virtual_id});
         }
         
         function createOffer(virtual_id) {
@@ -1200,7 +1200,7 @@ var middleware = (function() {
         //Only tells middleware that it wants to start broadcasting now, middleware will ask for offer
 		function startBroadcast(stream, speech_info) {
             localStream = stream;
-            sendMessageToMiddleware("start_broadcast", typeof speech_info == "undefined" ? null : {"speech_info": speech_info});
+            sendMessageToMiddleware("start_broadcast", typeof speech_info == "undefined" ? {"virtual_id": virtual_id} : {"speech_info": speech_info, "virtual_id": virtual_id});
         }
         
         
@@ -1212,11 +1212,11 @@ var middleware = (function() {
                 "stream": localStream,
                 //Got local ice candidates
                 "onicecandidate": function (event) {
-                    sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
+                    sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'virtual_id': virtual_id});
                     
                 },
                 "gotLocalDescription": function (description) {      
-                    sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': hotspot_id});
+                    sendMessageToMiddleware("offer", {'sdp': description, 'virtual_id': virtual_id});
                 },
                 "sdpConstraints": sdpConstraints
             };            
