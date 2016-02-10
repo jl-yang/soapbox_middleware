@@ -32,7 +32,7 @@ soapbox.connect(function () {
     //Start speech transmission
 	soapbox.start(local_stream);
     //start a new speech immediately
-    //soapbox.start(local_stream, submit_info)
+    //soapbox.start(local_stream, speech_info)
     
     //Callback of validating password
     soapbox.onvalidationresult = function(result) {
@@ -208,7 +208,7 @@ virtual.connect(function () {
     virtual.register();
     
     //If it wants to start a speech right now
-    virtual.start(local_stream, submit_info); 
+    virtual.start(local_stream, speech_info); 
     
     //Try to tell middleware that it is about to close
     virtual.stop(); 

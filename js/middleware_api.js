@@ -959,15 +959,15 @@ var middleware = (function() {
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         
         function addLike() {
-			sendMessageToMiddleware("like", "virtual_id": virtual_id);
+			sendMessageToMiddleware("like", {"virtual_id": virtual_id});
 		}
 		
 		function addDislike() {
-			sendMessageToMiddleware("dislike", "virtual_id": virtual_id);
+			sendMessageToMiddleware("dislike", {"virtual_id": virtual_id});
 		}
 		
 		function reportInappropriateContent() {
-			sendMessageToMiddleware("report", "virtual_id": virtual_id);
+			sendMessageToMiddleware("report", {"virtual_id": virtual_id});
 		}
         
 		function onReceiveCurrentUsers(count) {
