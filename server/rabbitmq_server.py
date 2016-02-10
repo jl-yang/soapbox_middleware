@@ -483,6 +483,7 @@ class Middleware(object):
         
         #Virtual info
         self.virtuals = []
+        self.virtual_speaker_id = None
         
         #Database handler
         #self.db = dbHandler(True) if not self.ENABLE_TEST_HOTSPOT else dbHandler(False)
