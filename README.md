@@ -13,7 +13,9 @@ Remember to include scripts in \<head\> tag
 Example:
 ```javascript
 //Speech info object, which will be sent to middleware once the connection is on
-var speech_info = {"name": "Jilin"};
+//lefttime: dd/mm/YY HH:MM (Time you want to start speech)
+var lefttime = current_time_string(); //Example: "21/02/2016 12:05"
+var speech_info = {"name": "Jilin", "topic": "New speech", "lefttime": lefttime, "password": "abcdefg123"};
 
 //API object
 var soapbox = new Soapbox();

@@ -9,6 +9,16 @@ var middleware = (function() {
     options: {"day": true, "hour": true}
     return: {"date": "25/11/2015", "time": "12:00"}
     */
+    window.current_time_string = function() {
+        var now = new Date();
+        var year = "" + now.getFullYear();
+        var month = "" + (now.getMonth() + 1); if (month.length == 1) { month = "0" + month; }
+        var day = "" + now.getDate(); if (day.length == 1) { day = "0" + day; }
+        var hour = "" + now.getHours(); if (hour.length == 1) { hour = "0" + hour; }
+        var minute = "" + now.getMinutes(); if (minute.length == 1) { minute = "0" + minute; }
+        return day + "/" + month + "/" + year + " " + hour + ":" + minute;
+    };
+    
     window.extract_date_time = function(date_time_string, options) {
         var response = {};
         
@@ -50,7 +60,7 @@ var middleware = (function() {
         }
         
         return response;
-    }
+    };
     
     var PeerConnection_Config = {
 		iceServers: [
