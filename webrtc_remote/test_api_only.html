@@ -7,11 +7,58 @@
 		<script src="../js/middleware_api.js"></script>
 	</head>
 	<body>
+        <div id="container">
+            <video id="localVideo" autoplay></video>         			
+        </div>
 		<script>
-            var virtual = new Virtual();
-            virtual.connect(function() {
-                console.log("hello");
-            });
+        
+            var localVideo = document.getElementById('localVideo');
+			var self = this;
+			var localStream;
+            
+			console.log('Requesting local stream');
+            
+			navigator.getUserMedia(
+				{
+					video: true,
+					audio: true
+				}, 
+				gotStream, 
+				function (error) {
+					console.log('navigator.getUserMedia error: ', error);
+				}
+			);
+			function gotStream(stream) {   
+				console.log('Received local stream');
+				localStream = stream;
+                console.log(stream);
+				localVideo.src = URL.createObjectURL(stream); 
+                
+                var virtual = new Virtual("" + Math.random());
+                
+                window.virtual = virtual;
+                window.stream = stream;
+                
+                var speech_info = {"lefttime": current_time_string(), "name": "Jilin",
+                        "topic": "Today is hot!", "password": 1234};	
+                window.speech_info = speech_info;
+                
+                virtual.connect(function(){
+					virtual.register();
+                    
+                    virtual.onregister = function() {
+                        //virtual.start(stream, speech_info);
+                    }
+					
+				});	
+                
+                //Try to tell signaling server that it is about to close
+                window.onbeforeunload = function(event) {
+                    virtual.stop();
+                    virtual.unregister();
+                };
+			}
+            
 			
 		</script>
 	</body>

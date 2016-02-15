@@ -195,7 +195,7 @@ audience.connect(function () {
 Example:
 ```javascript
 //API object
-var virtual = new Virtual();
+var virtual = new Virtual("unique-name");   //Example name: "" + Math.random()
 
 //Setup the video object for displaying remote stream
 var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element
@@ -210,8 +210,11 @@ virtual.connect(function () {
     //If it wants to start a speech right now
     virtual.start(local_stream, speech_info); 
     
-    //Try to tell middleware that it is about to close
+    //Try to tell middleware that it is about to close speech
     virtual.stop(); 
+    
+    //Tell middleware that user would leave now, not watching the virtual soapbox
+    virtual.unregister();
 });
 
 //Register callbacks
@@ -332,6 +335,9 @@ https://github.com/eligrey/FileSaver.js
 9. Problem: _id default field in MongoDB is retrieved but not JSON serializable
 Need to explicitly exclude _id as it is not JSON serializable
 
+10. Problem: Sometimes unknown client will be attached to the exchange even without notice, thus some unexpected responses will be generated and confuse the middleware
+First disable prerendering in chrome/safari.
+Second, close the whole browser and restart it again.
 
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.

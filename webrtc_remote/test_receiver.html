@@ -1,0 +1,29 @@
+<html>
+	<head>
+		<title>RTCPeerConnection remote client for receiving Video stream</title>
+		<script src="../js/sockjs.js"></script>
+		<script src="../js/stomp.js"></script>		
+		<script src="../js/adapter.js"></script>
+		<script src="../js/middleware_api.js"></script>
+	</head>
+	<body>
+        <div id="container">
+            <video id="remoteVideo" autoplay muted></video>
+        </div>
+		<script>
+            var virtual = new Virtual("" + Math.random());
+            
+            var remoteVideo = document.getElementById('remoteVideo');
+            virtual.setup(remoteVideo);
+            
+            virtual.connect(function() {
+                virtual.register();                
+            });
+			
+            window.onbeforeunload = function(event) {
+                virtual.unregister();
+            }
+		</script>
+	</body>
+	
+</html>
