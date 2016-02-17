@@ -958,6 +958,7 @@ var middleware = (function() {
 		this.send = sendMessageToMiddleware;
 		this.like = addLike;
 		this.dislike = addDislike;
+        this.comment = addCommentToCurrentSpeech;
 		this.report = reportInappropriateContent;
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
@@ -1014,6 +1015,11 @@ var middleware = (function() {
         
         function registerInMiddleware(){
             sendMessageToMiddleware("register", {"name": self.name});
+        }
+        
+        function addCommentToCurrentSpeech(username, comment) {
+            //Comments should be just plain string
+            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}});
         }
         
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
