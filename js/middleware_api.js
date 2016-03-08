@@ -1088,7 +1088,8 @@ var middleware = (function() {
                                 });
 							} 
                             //From virtual speaker, important to decide if virtual id is non-existing
-                            else if(signal.type == "ice-candidate" && signal.data.ice && !signal.data.virtual_id) {
+                            else if(signal.type == "ice-candidate" && signal.data.ice 
+                                && !signal.data.virtual_id && !signal.data.hotspot_id) {
 								PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
 							}
                             //From virtual receiver
@@ -1108,6 +1109,10 @@ var middleware = (function() {
                             //From virtual receiver
 							else if(signal.type == "ice-candidate" && signal.data.ice && signal.data.virtual_id) {
 								peers[signal.data.virtual_id].addIceCandidate(signal.data.ice);
+							} 
+                            //From hotspot receiver
+                            else if(signal.type == "ice-candidate" && signal.data.ice && signal.data.hotspot_id) {
+								peers[signal.data.hotspot_id].addIceCandidate(signal.data.ice);
 							} 
                             //From middleware
                             else if (signal.type == "request_offer") {

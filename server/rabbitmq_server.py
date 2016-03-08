@@ -1073,20 +1073,22 @@ class Middleware(object):
                 likes = self.db.like_current_speech(sender, ts)
                 
                 print "[*] Likes updated: ", likes
-                self.send_soapbox("likes", {"likes": likes})
-                self.send_hotspot("likes", {"likes": likes})
-                self.send_audience("likes", {"likes": likes})
-                self.send_virtual("likes", {"likes": likes})
+                if likes is not None:
+                    self.send_soapbox("likes", {"likes": likes})
+                    self.send_hotspot("likes", {"likes": likes})
+                    self.send_audience("likes", {"likes": likes})
+                    self.send_virtual("likes", {"likes": likes})
                 
             elif type == "dislike":	
                 #Add it to total
                 dislikes = self.db.dislike_current_speech(sender, ts)
                                 
                 print "[*] Dislikes updated: ", dislikes
-                self.send_soapbox("dislikes", {"dislikes": dislikes})
-                self.send_hotspot("dislikes", {"dislikes": dislikes})
-                self.send_audience("dislikes", {"dislikes": dislikes})
-                self.send_virtual("dislikes", {"dislikes": dislikes})
+                if dislikes is not None:
+                    self.send_soapbox("dislikes", {"dislikes": dislikes})
+                    self.send_hotspot("dislikes", {"dislikes": dislikes})
+                    self.send_audience("dislikes", {"dislikes": dislikes})
+                    self.send_virtual("dislikes", {"dislikes": dislikes})
                 
             elif type == "report":	
                 #Add it to total
