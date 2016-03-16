@@ -9,10 +9,11 @@ import time
 
 from pymongo import MongoClient
 
-SPEECH_INFO_KEY_ID = "startTime"
+SPEECH_INFO_KEY_ID = "starttime"
 SPEECH_INFO_KEY_PASSWORD = "password"
 SPEECH_INFO_KEY_TOPIC = "topic"
 SPEECH_INFO_KEY_NAME = "speaker"
+#Example string from soapbox website: 16/02/2016 16:25
 SPEECH_INFO_ID_FORMAT = "%d/%m/%Y %H:%M"
 COMMENT_KEY_NAME = "username"
 COMMENT_KEY_CONTENT = "content"
@@ -29,7 +30,7 @@ class dbHandler:
     is_debug = None
     
     #Maximum allowed starting a reserved speech if there is some delay
-    MAX_ALLOWED_SPEECH_START_DELAY = 5
+    MAX_ALLOWED_SPEECH_START_DELAY_SECONDS = 5 * 60
     
     def __init__(self, is_debug):
         self.client = MongoClient()
@@ -95,6 +96,7 @@ class dbHandler:
             return None
         
         #Save the speech starting dates and corresponding password. Use datetime object as key
+                
         _date_object = datetime.datetime.strptime(start_time_str, SPEECH_INFO_ID_FORMAT)
         speech = {
             "speech_id": _date_object,
@@ -112,6 +114,7 @@ class dbHandler:
             "submit_info": submit_info,
             "current_users": 0
         }        
+        # TODO - Calculate the length when you want to stop the speech
         self.speeches.insert_one(speech)
         return _date_object
         
@@ -200,12 +203,12 @@ class dbHandler:
         
     #next speech is the earliest unused one, is_used will be true once a speech becomes ongoing
     def next_speech(self):
-        #Sort the speeches to find the speech: earliest unused, and also no later than (current time - MAX_ALLOWED_SPEECH_START_DELAY)
+        #Sort the speeches to find the speech: earliest unused, and also no later than (current time - MAX_ALLOWED_SPEECH_START_DELAY_SECONDS)
         speeches = self.speeches.find(
             {
                 "is_used": False,
                 "speech_id": {
-                    "$gt": datetime.datetime.now() - datetime.timedelta(minutes=self.MAX_ALLOWED_SPEECH_START_DELAY) #now is same as today()
+                    "$gt": datetime.datetime.now() - datetime.timedelta(seconds=self.MAX_ALLOWED_SPEECH_START_DELAY_SECONDS) #now is same as today()
                 }
             },
             {
@@ -830,7 +833,10 @@ class Middleware(object):
                 #Just a message for all audience
                 self.send_audience("stop_broadcast", None)
                 #Send stop message to all hotspot
-                self.send_hotspot("stop_broadcast", None)                
+                self.send_hotspot("stop_broadcast", None)  
+                #Send stop message to all virtuals
+                self.send_virtual("stop_broadcast", None)
+                
                 self.soapbox = {}
                 
                 #Should also redirect all hotspots back from full screen state
@@ -897,6 +903,10 @@ class Middleware(object):
                 self.db.comment_current_speech(ts, sender, _username, _content)
                 self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
                 self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
+                
+                #Won't send virtual users comments when the speech is given by virtual speaker
+                if sender == "virtual":
+                        return
                 self.send_virtual("comment", {"comment": {"username": _username, "content": _content}})
                 
             elif type == "online":
@@ -904,7 +914,7 @@ class Middleware(object):
                 if users is not None:
                     self.send_soapbox("current_users", {"current_users": users})
                     self.send_hotspot("current_users", {"current_users": users})
-                    self.send_audience("current_users", {"current_users": users})
+                    self.send_audience("current_users", {"current_users": users})                    
                     self.send_virtual("current_users", {"current_users": users})
             
             elif type == "offline":
@@ -962,8 +972,7 @@ class Middleware(object):
                     self.send_virtual("dislikes", {"dislikes": self.db.get_speech_dislikes(ongoing["speech_id"]), "receiver_id": _virtual_id})
                     for comment in self.db.get_speech_comments(ongoing["speech_id"]):
                         self.send_virtual("comment", {"comment": {"username": comment[COMMENT_KEY_NAME], "content": comment[COMMENT_KEY_CONTENT]}, "receiver_id": _virtual_id})
-                                                             
-                
+                                                
                     #Request an offer for virtual client   
                     self.threaded_send_request_offer(_virtual_id, self.launcher_of_onging_speech(), "virtual", self.virtual_speaker_id) 
                 
@@ -1101,6 +1110,9 @@ class Middleware(object):
                     self.send_soapbox("likes", {"likes": likes})
                     self.send_hotspot("likes", {"likes": likes})
                     self.send_audience("likes", {"likes": likes})
+                    #Won't send virtual users when the speech is given by virtual speaker
+                    if sender == "virtual":
+                        return
                     self.send_virtual("likes", {"likes": likes})
                 
             elif type == "dislike":	
@@ -1112,6 +1124,9 @@ class Middleware(object):
                     self.send_soapbox("dislikes", {"dislikes": dislikes})
                     self.send_hotspot("dislikes", {"dislikes": dislikes})
                     self.send_audience("dislikes", {"dislikes": dislikes})
+                    #Won't send virtual users when the speech is given by virtual speaker
+                    if sender == "virtual":
+                        return
                     self.send_virtual("dislikes", {"dislikes": dislikes})
                 
             elif type == "report":	
@@ -1182,7 +1197,7 @@ def start_middleware():
         middleware.stop()
         
         #If it is in debug mode, then database should be cleaned
-        #middleware.clean_database()
+        middleware.clean_database()
         
         
         

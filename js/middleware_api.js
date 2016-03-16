@@ -1011,6 +1011,7 @@ var middleware = (function() {
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         this.onregister = onRegister;
         this.onreceivestartfeedback = onReceiveStartFeedback;
+        this.onstop = function() {};
         
         function onReceiveStartFeedback() {
             //None
@@ -1173,8 +1174,12 @@ var middleware = (function() {
                             else if(signal.type == "stop_broadcast" && typeof signal.data !== "undefined"
                                 && typeof signal.data.virtual_id !== "undefined"
                                 && signal.data.virtual_id !== self.virtual_id) {
-								stopSpeechTransmission();
-							}                            
+								stopSpeechTransmission();                                
+							}
+                            //From soapbox speaker
+                            else if (signal.type == "stop_broadcast") {
+                                self.onstop();
+                            }                                
                             //From virtual receiver
                             else if (signal.type == "unregister" && signal.data.virtual_id) {
                                 if (typeof peers[signal.data.virtual_id] !== "undefined") {

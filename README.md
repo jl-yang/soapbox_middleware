@@ -215,6 +215,10 @@ virtual.connect(function () {
     
     //Tell middleware that user would leave now, not watching the virtual soapbox
     virtual.unregister();
+    
+    virtual.onstop = function() {
+        //Now the speech given by physical soapbox is stopped.
+    }
 });
 
 //Register callbacks
