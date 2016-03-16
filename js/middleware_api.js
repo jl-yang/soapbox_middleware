@@ -196,6 +196,11 @@ var middleware = (function() {
         this.ondeletespeech = onDeleteSpeech;
         
         this.onreceivecurrentusers = onReceiveCurrentUsers;
+        this.onreceivestartfeedback = onReceiveStartFeedback;
+        
+        function onReceiveStartFeedback() {
+            //None
+        }
         
 		function onReceiveCurrentUsers(count) {
             //None
@@ -313,28 +318,49 @@ var middleware = (function() {
 								return signal;
 							}							
 							//Assume soapbox will fire the offer according to middleware's request
-							if (signal.type == "answer" && signal.data.sdp && signal.data.hotspot_id) {
-                                peers[signal.data.hotspot_id].setRemoteDescription(signal.data.sdp,
-                                    function() {
-                                        sendMessageToMiddleware("ready", null);
-                                });						
+							if (signal.type == "answer" && signal.data.sdp) {
+                                if (signal.data.virtual_id) {
+                                    peers[signal.data.virtual_id].setRemoteDescription(signal.data.sdp,
+                                        function() {
+                                            sendMessageToMiddleware("ready", null);
+                                    });					
+                                } else if (signal.data.hotspot_id) {
+                                    peers[signal.data.hotspot_id].setRemoteDescription(signal.data.sdp,
+                                        function() {
+                                            sendMessageToMiddleware("ready", null);
+                                    });	
+                                } 
 							} 
+                            //From virtual receiver
+                            else if(signal.type == "ice-candidate" && signal.data.ice && signal.data.virtual_id) {
+                                peers[signal.data.virtual_id].addIceCandidate(signal.data.ice);
+                            } 
 							else if(signal.type == "ice-candidate" && signal.data.ice && signal.data.hotspot_id) {
 								peers[signal.data.hotspot_id].addIceCandidate(signal.data.ice);
 							} 
 							else if(signal.type == "stop_broadcast" && signal.data.hotspot_id) {
 								peers[signal.data.hotspot_id].stopSpeech();
 							}
-                            else if (signal.type == "request_offer" && signal.data.hotspot_id) {
-                                createOffer(signal.data.hotspot_id);
+                            else if(signal.type == "stop_broadcast" && signal.data.virtual_id) {
+								peers[signal.data.virtual_id].stopSpeech();
+							}
+                            else if (signal.type == "start_feedback" && signal.data.start_feedback) {
+                                self.onreceivestartfeedback(signal.data.start_feedback)
                             }
-                            else if (signal.type == "request_offer" && signal.data.virtual_id) {
-                                //TODO also answeer
-                                console.log("TODO");
+                            else if (signal.type == "request_offer") {
+                                if (signal.data.virtual_id)
+                                    createOffer(signal.data.virtual_id, "virtual");
+                                else if(signal.data.hotspot_id)
+                                    createOffer(signal.data.hotspot_id, "hotspot");
                             }
                             else if (signal.type == "unregister" && signal.data.hotspot_id) {
                                 if (typeof peers[signal.data.hotspot_id] !== "undefined") {
                                     delete peers[signal.data.hotspot_id];
+                                }
+                            }
+                            else if (signal.type == "unregister" && signal.data.virtual_id) {
+                                if (typeof peers[signal.data.virtual_id] !== "undefined") {
+                                    delete peers[signal.data.virtual_id]
                                 }
                             }
 							else if(signal.type == "likes" && signal.data.likes) {
@@ -395,22 +421,37 @@ var middleware = (function() {
             sendMessageToMiddleware("stop_broadcast", null);
         }
         
-        //Called when middleware sends a request_offer message. Offer will be requested only when new hotspot website is online
-        function createOffer(hotspot_id) {
-            var options = {
-                "hotspot_id": hotspot_id,
-                "stream": localStream,
-                //Got local ice candidates
-                "onicecandidate": function (event) {
-                    sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
-                    
-                },
-                "gotLocalDescription": function (description) {      
-                    sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': hotspot_id});
-                },
-                "sdpConstraints": sdpConstraints
-            };            
-            peers[hotspot_id] = Offer.createOffer(options);			
+        //Called when middleware sends a request_offer message.
+        function createOffer(receiver_id, receiver) {
+            var options = null;
+            if (receiver == "virtual") {
+                options = {
+                    "virtual_id": receiver_id,
+                    "stream": localStream,
+                    //Got local ice candidates
+                    "onicecandidate": function (event) {
+                        sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'receiver_id': receiver_id});                        
+                    },
+                    "gotLocalDescription": function (description) {      
+                        sendMessageToMiddleware("offer", {'sdp': description, 'receiver_id': receiver_id});
+                    },
+                    "sdpConstraints": sdpConstraints
+                }; 
+            } else if (receiver == "hotspot") {
+                options = {
+                    "hotspot_id": receiver_id,
+                    "stream": localStream,
+                    //Got local ice candidates
+                    "onicecandidate": function (event) {
+                        sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': receiver_id});                        
+                    },
+                    "gotLocalDescription": function (description) {      
+                        sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': receiver_id});
+                    },
+                    "sdpConstraints": sdpConstraints
+                };   
+            }
+            peers[receiver_id] = Offer.createOffer(options);			
 		}
                 
         function sendMessageToMiddleware(type, payload) {     
@@ -969,7 +1010,11 @@ var middleware = (function() {
 		this.onreceivecomment = onReceiveComment;
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         this.onregister = onRegister;
+        this.onreceivestartfeedback = onReceiveStartFeedback;
         
+        function onReceiveStartFeedback() {
+            //None
+        }
         function onRegister() {
             //Do something like starting a speech
         }
@@ -1087,7 +1132,7 @@ var middleware = (function() {
                                         console.log('Error: ' + error.toString());
                                 });
 							} 
-                            //From virtual speaker, important to decide if virtual id is non-existing
+                            //From speaker, important to decide if virtual id is non-existing
                             else if(signal.type == "ice-candidate" && signal.data.ice 
                                 && !signal.data.virtual_id && !signal.data.hotspot_id) {
 								PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
@@ -1129,13 +1174,22 @@ var middleware = (function() {
                                 && typeof signal.data.virtual_id !== "undefined"
                                 && signal.data.virtual_id !== self.virtual_id) {
 								stopSpeechTransmission();
-							}
+							}                            
                             //From virtual receiver
                             else if (signal.type == "unregister" && signal.data.virtual_id) {
                                 if (typeof peers[signal.data.virtual_id] !== "undefined") {
                                     peers[signal.data.virtual_id].stopSpeech();
                                     delete peers[signal.data.virtual_id];
                                 }
+                            }
+                            else if (signal.type == "unregister" && signal.data.hotspot_id) {
+                                if (typeof peers[signal.data.hotspot_id] !== "undefined") {
+                                    peers[signal.data.hotspot_id].stopSpeech();
+                                    delete peers[signal.data.hotspot_id];
+                                }
+                            } 
+                            else if (signal.type == "start_feedback" && signal.data.start_feedback) {
+                                self.onreceivestartfeedback(signal.data.start_feedback)
                             }
 							else if(signal.type == "likes" && signal.data.likes) {
 								self.onreceivelikes(signal.data.likes);
@@ -1146,7 +1200,9 @@ var middleware = (function() {
 							else if(signal.type == "comment" && signal.data.comment) {
                                 self.onreceivecomment(signal.data.comment.username, signal.data.comment.content);
                             }
-                            
+                            else if(signal.type == "current_speech_info") {
+                                self.onreceivespeechinfo(signal.data.current_speech_info);
+                            }
                             
                             
 							return typeof onReceiveMessage !== "function" ? null : onReceiveMessage(signal);
@@ -1224,7 +1280,7 @@ var middleware = (function() {
         
         
         
-        //Called when middleware sends a request_offer message. Offer will be requested only when new hotspot website is online
+        //Called when middleware sends a request_offer message.
         function createOffer(receiver_id, receiver) {
             var options = null;
             if(receiver == "virtual") {
