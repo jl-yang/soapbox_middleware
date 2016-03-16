@@ -9,10 +9,10 @@ import time
 
 from pymongo import MongoClient
 
-SPEECH_INFO_KEY_ID = "lefttime"
+SPEECH_INFO_KEY_ID = "startTime"
 SPEECH_INFO_KEY_PASSWORD = "password"
 SPEECH_INFO_KEY_TOPIC = "topic"
-SPEECH_INFO_KEY_NAME = "name"
+SPEECH_INFO_KEY_NAME = "speaker"
 SPEECH_INFO_ID_FORMAT = "%d/%m/%Y %H:%M"
 COMMENT_KEY_NAME = "username"
 COMMENT_KEY_CONTENT = "content"
@@ -774,7 +774,7 @@ class Middleware(object):
                 
                 for hotspot in self.hotspots:
                     self.threaded_send_request_offer(hotspot["id"], "soapbox", "hotspot", None)
-                
+
                 #Not doing so for virtual receivers
             
             elif type == "offer" and "sdp" in data:
