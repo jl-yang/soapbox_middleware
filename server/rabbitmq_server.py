@@ -856,6 +856,8 @@ class Middleware(object):
                 
                 ongoing = self.db.ongoing_speech()  
                 
+                print ongoing
+                
                 if ongoing is not None:
                     #Also send speech info              
                     self.send_hotspot("current_speech_info", {"current_speech_info": ongoing["submit_info"], "hotspot_id": _hotspot_id})
@@ -872,15 +874,15 @@ class Middleware(object):
                 launcher = self.launcher_of_onging_speech()
                 if launcher == "soapbox":
                     self.send_soapbox("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
-                elif launcher == "virtual":
-                    self.send_virtual("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
+                elif launcher == "virtual" and self.virtual_speaker_id is not None:
+                    self.send_virtual("answer", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"], "receiver_id": self.virtual_speaker_id})
                 
             elif type == "ice-candidate" and "ice" in data and "hotspot_id" in data:
                 launcher = self.launcher_of_onging_speech()
                 if launcher == "soapbox":
                     self.send_soapbox("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
-                elif launcher == "virtual":
-                    self.send_virtual("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
+                elif launcher == "virtual" and self.virtual_speaker_id is not None:
+                    self.send_virtual("ice-candidate", {"ice": data["ice"], "hotspot_id": data["hotspot_id"], "receiver_id": self.virtual_speaker_id})
             
             elif type == "unregister":
                 if "hotspot_id" not in data:
@@ -899,8 +901,18 @@ class Middleware(object):
                 print "Comment: ", data["comment"]  
                 _username = data["comment"][COMMENT_KEY_NAME]
                 _content = data["comment"][COMMENT_KEY_CONTENT]
+                
                 #Add comment to list
-                self.db.comment_current_speech(ts, sender, _username, _content)
+                #Specify identity of the virtual user
+                if sender == "audience":
+                    self.db.comment_current_speech(ts, sender, _username, _content)
+                else:
+                    #Virtual speaker is commenting on its own speech
+                    if self.virtual_speaker_id is not None and "virtual_id" in data and self.virtual_speaker_id == data["virtual_id"]:
+                        self.db.comment_current_speech(ts, "virtual-speaker", _username, _content)
+                    else:
+                        self.db.comment_current_speech(ts, "virtual-audience", _username, _content)
+                        
                 self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
                 self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
                 
@@ -1030,14 +1042,14 @@ class Middleware(object):
                         #Only those virtuals that are not speaker should request an offer
                         if virtual["id"] != self.virtual_speaker_id:
                             self.threaded_send_request_offer(virtual["id"], self.launcher_of_onging_speech(), "virtual", self.virtual_speaker_id)
-                                   
+                    
+                    #TODO: Not able to broadcast video to hotspot now
                 
             
             #Stop speech transmission in hotspot website according to message from soapbox website
             elif type == "stop_broadcast":   
                 print "\nTrying to stop right now\n"
                 print self.virtual_speaker_id
-                print "virtual_id:" + data["virtual_id"] 
                 if "virtual_id" in data and self.virtual_speaker_id is not None and data["virtual_id"] == self.virtual_speaker_id:
                     
                     ongoing = self.db.ongoing_speech()

@@ -67,9 +67,28 @@ var middleware = (function() {
 		{
 			url: "stun:stun.l.google.com:19302"
 		},
+        {
+            url: 'stun:stun2.l.google.com:19302'
+        },
+        {
+            url: 'stun:stun3.l.google.com:19302'
+        },
+        {
+            url: 'stun:stun4.l.google.com:19302'
+        },
 		{
 			url: "stun:stun.servers.mozilla.com"
-		}]
+		},
+        {
+            url: 'turn:192.158.29.39:3478?transport=udp',
+            credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+            username: '28224511:1379330808'
+        },
+        {
+            url: 'turn:192.158.29.39:3478?transport=tcp',
+            credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+            username: '28224511:1379330808'
+        }]
 	};	
     
     var Offer = {
@@ -1069,7 +1088,7 @@ var middleware = (function() {
         
         function addCommentToCurrentSpeech(username, comment) {
             //Comments should be just plain string
-            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}});
+            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}, "virtual_id": self.virtual_id});
         }
         
 		function connectMiddleware(onConnectCallback, onErrorCallback, onReceiveMessage, configuration) {
@@ -1273,6 +1292,7 @@ var middleware = (function() {
         
         function _gotRemoteStream(event) {			
 			console.log('Received remote stream');
+            console.log(event);
 			self.remoteStream = event.stream;
 			self.remoteVideo.src = URL.createObjectURL(event.stream);
 		}

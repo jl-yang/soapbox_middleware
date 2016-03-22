@@ -36,7 +36,7 @@ reports document
 {
     "speech_id": <Same as speech_id in speeches document>,
     "timestamp":
-    "sender": "audience" or hotspot name
+    "sender": "audience" or "virtual-speaker" or "virtual-audience"
 }
 
 comments document

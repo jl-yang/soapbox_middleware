@@ -258,7 +258,7 @@ stun.voxgratia.org
 stun.xten.com
 
 ##STUN server tester online
-https://plugin.temasys.com.sg/demo/samples/web/content/peerconnection/trickle-ice/index.html
+https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
 
 ##VM server IP
 85.23.168.158
