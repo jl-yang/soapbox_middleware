@@ -731,7 +731,7 @@ var middleware = (function() {
 					});                    
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
                 }, function(error) {
-                    console.log('Failed to connect to signaling server: ' + error.toString());
+                    console.warn('Failed to connect to signaling server: ' + error.toString());
                     return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
                 }, vhost);
 			
@@ -1134,7 +1134,8 @@ var middleware = (function() {
                             }
                             //Act as receiver
                             else if (signal.type == "offer" && signal.data.sdp) {				
-								waitForSpeechTransmission();						
+								waitForSpeechTransmission();		
+                                console.debug("PeerConnection:", PeerConnection);
 								PeerConnection.setRemoteDescription(
                                     new RTCSessionDescription(signal.data.sdp), 
                                     function () {
@@ -1171,6 +1172,7 @@ var middleware = (function() {
                             //From virtual receiver
 							else if(signal.type == "ice-candidate" && signal.data.ice && signal.data.virtual_id) {
 								peers[signal.data.virtual_id].addIceCandidate(signal.data.ice);
+                                console.debug("Receiving ice-candidate", signal.data.ice);
 							} 
                             //From hotspot receiver
                             else if(signal.type == "ice-candidate" && signal.data.ice && signal.data.hotspot_id) {
@@ -1230,7 +1232,7 @@ var middleware = (function() {
 					});	
 					return typeof onConnectCallback !== "function" ? null : onConnectCallback(connected_frame);
 			}, function(error) {
-				console.log(error.toString());
+				console.warn(error.toString());
 				return typeof onErrorCallback !== "function" ? null :onErrorCallback(error);
 			}, vhost);
 			
@@ -1254,6 +1256,8 @@ var middleware = (function() {
 		}
         
         function waitForSpeechTransmission() {
+            console.debug(PeerConnection);
+            console.debug(PeerConnection_Config);
 			if(!PeerConnection) {
 				PeerConnection = new RTCPeerConnection(PeerConnection_Config);
 				console.log('Created local peer connection object PeerConnection');
