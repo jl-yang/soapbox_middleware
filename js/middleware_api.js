@@ -183,7 +183,12 @@ var middleware = (function() {
 		var sdpConstraints = {
 			OfferToReceiveAudio: false,
 			OfferToReceiveVideo: false
-		};		
+		};	
+        
+        var sdpConstraintsForHotspot = {
+			OfferToReceiveAudio: true,
+			OfferToReceiveVideo: true
+		};        
         
         var peers = {};
         this.peers = peers;
@@ -1004,6 +1009,10 @@ var middleware = (function() {
         var sdpConstraints = {
 			OfferToReceiveAudio: false,
 			OfferToReceiveVideo: false
+		};	
+        var sdpConstraintsForHotspot = {
+			OfferToReceiveAudio: true,
+			OfferToReceiveVideo: true
 		};	
         var peers = {};
         this.peers = peers;

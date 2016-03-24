@@ -52,6 +52,14 @@ soapbox.connect(function () {
     //Delete a speech based on corresponding password
     soapbox.delete_speech(password);
     
+    //Adding hotspot camera feeds
+    soapbox.onaddhotspot = function(hotspotStream) {
+        //maybe assign it to another video object
+        another_video_stream = hotspotStream;
+        another_video_object = URL.createObjectURL(hotspotStream);
+    }
+    //Might be problematic when hotspot website is not using ssl, since camera usage requires confirmation by pressing button in pop-up window
+    
 });
 
 //Try to tell middleware that it is about to close
@@ -353,6 +361,8 @@ Then middleware will combine the video/webm and audio/wav streams together, and 
 
 4. Simple browsing website for archiving the history speech and also the current speech
 5. Move everything to virtual server with public IP and ports.
+
+6. Write testing scripts using selenium like: https://github.com/webrtc/samples/blob/gh-pages/src/content/peerconnection/multiple/js/test.js
 
 #Notice
 Run MongoDB instance locally for now: mongod
