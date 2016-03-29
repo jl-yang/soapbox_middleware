@@ -224,7 +224,7 @@ virtual.connect(function () {
     //Tell middleware that user would leave now, not watching the virtual soapbox
     virtual.unregister();
     
-    virtual.onstop = function() {
+    virtual.onstopspeech = function() {
         //Now the speech given by physical soapbox is stopped.
     }
 });
@@ -366,6 +366,10 @@ Then middleware will combine the video/webm and audio/wav streams together, and 
 5. Move everything to virtual server with public IP and ports.
 
 6. Write testing scripts using selenium like: https://github.com/webrtc/samples/blob/gh-pages/src/content/peerconnection/multiple/js/test.js
+7. Virtual user cannot receiver video again when second one starts.
+8. Timezone effect should be considered in middleware api js library.
+http://stackoverflow.com/questions/10830357/javascript-toisostring-ignores-timezone-offset
+
 
 #Notice
 Run MongoDB instance locally for now: mongod

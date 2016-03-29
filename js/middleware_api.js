@@ -1027,8 +1027,16 @@ var middleware = (function() {
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         this.onregister = onRegister;
         this.onreceivestartfeedback = onReceiveStartFeedback;
-        this.onstopspeech = function() {};
-        this.onreceivecurrentusers = function(current_users) {};
+        this.onstopspeech = onStopSpeech;
+        this.onreceivecurrentusers = onReceiveCurrentUsers;
+        
+        function onStopSpeech() {
+            //None
+        }
+        
+        function onReceiveCurrentUsers(current_users) {
+            //None
+        }
         
         function onReceiveStartFeedback() {
             //None
