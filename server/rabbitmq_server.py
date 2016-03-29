@@ -802,10 +802,13 @@ class Middleware(object):
                     
                 #If no data is provided, then by default start the next upcoming speech
                 next_speech = self.db.next_speech()
+                speech_info = None
                 if "speech_info" not in data and next_speech is not None:
+                    speech_info = next_speech["submit_info"]
                     self.db.speech_start(next_speech["speech_id"], ts)
                     self.send_soapbox("start_feedback", {"start_feedback": "success", "descriptions": ""}) 
                 elif "speech_info" in data and data["speech_info"] is not None:
+                    speech_info = data["speech_info"]
                     #Start speech immediately, no speech info is submitted, should have other info later
                     self.db.speech_start(self.db.add_speech(data["speech_info"], "soapbox", False), ts)
                     self.send_soapbox("start_feedback", {"start_feedback": "success", "descriptions": ""}) 
@@ -813,16 +816,22 @@ class Middleware(object):
                 #Just a message for all audience, so audience can comment now
                 self.send_audience("start_broadcast", None)
                 
+                #Tell all virtual users that a speech is starting right now
+                self.send_virtual("current_speech_info", {"current_speech_info": speech_info})
+                    
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_WEBSITE_URL)
                 
                 #Enable virtual users
-                #for virtual in self.virtuals:
-                #    #Only those virtuals that are not speaker should request an offer
-                #    if virtual["id"] != self.virtual_speaker_id:
-                #        self.threaded_send_request_offer(virtual["id"], "soapbox", None)
-                                    
+                for virtual in self.virtuals:
+                    #Only those virtuals that are not speaker should request an offer
+                   if virtual["id"] != self.virtual_speaker_id:
+                        self.threaded_send_request_offer(virtual["id"], "soapbox", "virtual", None)
+                
+                #No need to detect hotspots as they are finally opened by middleware programmatically  
+                    
+                    
             #Stop speech transmission in hotspot website according to message from soapbox website
             elif type == "stop_broadcast":   
                 ongoing = self.db.ongoing_speech()
