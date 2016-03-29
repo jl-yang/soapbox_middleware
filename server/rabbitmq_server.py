@@ -269,9 +269,9 @@ class dbHandler:
         else:
             return None
     
-    def add_one_user(self, timestamp):
+    def add_user(self, timestamp, count=1):
         if self.ongoing_speech() is None:
-            print "add audience error"
+            print "Add audience error. No speech right now"
             return None
         speech_id = self.ongoing_speech()["speech_id"]
         #Insert separate user online record in users document
@@ -287,11 +287,11 @@ class dbHandler:
             },
             {
                 "$inc": {
-                    "current_users": 1
+                    "current_users": count
         }})
         return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
     
-    def minus_one_user(self, timestamp):
+    def minus_user(self, timestamp, count=1):
         if self.ongoing_speech() is None:
             print "add audience error"
             return None
@@ -309,7 +309,7 @@ class dbHandler:
             },
             {
                 "$inc": {
-                    "current_users": -1
+                    "current_users": -1 * count
         }})
         return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
     
@@ -554,6 +554,11 @@ class Middleware(object):
     def on_bind_soapbox_ok(self, frame):
         self._channel.basic_consume(self.on_message, queue=self.MIDDLEWARE_QUEUE_NAME)
         
+    def send_all(self, type, data):
+        self.send_soapbox(type, data)
+        self.send_hotspot(type, data)
+        self.send_audience(type, data)
+        self.send_virtual(type, data)
     
     def send(self, sender, type, data):
         if sender == "soapbox":
@@ -758,6 +763,16 @@ class Middleware(object):
         else:
             return None
     
+    def add_user(self, timestamp, count=1): 
+        users = self.db.add_user(timestamp, count)
+        if users is not None:                    
+            self.send_all("current_users", {"current_users": users})
+    
+    def minus_user(self, timestamp, count=1):
+        users = self.db.minus_user(timestamp, count)
+        if users is not None:
+            self.send_all("current_users", {"current_users": users})
+    
     def on_message(self, channel, deliver, properties, body):
         msgObj = json.loads(body)    
         
@@ -818,7 +833,12 @@ class Middleware(object):
                 
                 #Tell all virtual users that a speech is starting right now
                 self.send_virtual("current_speech_info", {"current_speech_info": speech_info})
-                    
+                
+                #Count all existing virtuals as current_users now
+                virtual_audience = len(self.virtuals)
+                if virtual_audience >= 1:
+                    self.add_user(ts, virtual_audience)
+                
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
                     self.start_broadcast(self.HOTSPOT_WEBSITE_URL)
@@ -931,20 +951,10 @@ class Middleware(object):
                 self.send_virtual("comment", {"comment": {"username": _username, "content": _content}})
                 
             elif type == "online":
-                users = self.db.add_one_user(ts)
-                if users is not None:
-                    self.send_soapbox("current_users", {"current_users": users})
-                    self.send_hotspot("current_users", {"current_users": users})
-                    self.send_audience("current_users", {"current_users": users})                    
-                    self.send_virtual("current_users", {"current_users": users})
-            
+                self.add_user(ts)
+                
             elif type == "offline":
-                users = self.db.minus_one_user(ts)
-                if users is not None:
-                    self.send_soapbox("current_users", {"current_users": users})
-                    self.send_hotspot("current_users", {"current_users": users})
-                    self.send_audience("current_users", {"current_users": users})
-                    self.send_virtual("current_users", {"current_users": users})
+                self.minus_user(ts)                
             
         if sender == "soapbox" or sender == "audience":    
             if type == "submit" and "speech_info" in data and \
@@ -986,6 +996,9 @@ class Middleware(object):
                                 
                 ongoing = self.db.ongoing_speech()   
                 if ongoing is not None:
+                    #Add itself as a new user to current speech
+                    self.add_user(ts)
+                    
                     #Also send speech info              
                     self.send_virtual("current_speech_info", {"current_speech_info": ongoing["submit_info"], "receiver_id": _virtual_id})
                     #Also send likes, dislikes info of ongoing speech                
@@ -1007,6 +1020,8 @@ class Middleware(object):
                     for i, virtual in enumerate(self.virtuals):
                         if virtual["id"] == data["virtual_id"]:
                             self.virtuals.pop(i)
+                            #Remove this virtual as current user
+                            self.minus_user(ts)
                             break
                     if self.virtual_speaker_id is not None:
                         self.send_virtual("unregister", {"receiver_id": self.virtual_speaker_id, "virtual_id": data["virtual_id"]})

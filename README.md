@@ -351,6 +351,9 @@ Need to explicitly exclude _id as it is not JSON serializable
 First disable prerendering in chrome/safari.
 Second, close the whole browser and restart it again.
 
+11. Virtual web apps cannot receive video, but meanwhile hotspot web apps can.
+*Such weird problem can be fixed simply by closing your firewall temporarily. Also, having same network is mandotary without justified reasons. E.g.: you need to use PanOulu for both speakers and receivers*
+
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.
 2. Add comments

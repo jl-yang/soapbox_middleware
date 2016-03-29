@@ -1027,11 +1027,13 @@ var middleware = (function() {
         this.onreceivespeechinfo = onReceiveSpeechInfo;
         this.onregister = onRegister;
         this.onreceivestartfeedback = onReceiveStartFeedback;
-        this.onstop = function() {};
+        this.onstopspeech = function() {};
+        this.onreceivecurrentusers = function(current_users) {};
         
         function onReceiveStartFeedback() {
             //None
         }
+        
         function onRegister() {
             //Do something like starting a speech
         }
@@ -1196,7 +1198,7 @@ var middleware = (function() {
 							}
                             //From soapbox speaker
                             else if (signal.type == "stop_broadcast") {
-                                self.onstop();
+                                self.onstopspeech();
                             }                                
                             //From virtual receiver
                             else if (signal.type == "unregister" && signal.data.virtual_id) {
