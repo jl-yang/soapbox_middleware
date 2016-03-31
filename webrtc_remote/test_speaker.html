@@ -53,11 +53,6 @@
 					
 				});	
                 
-                //Try to tell signaling server that it is about to close
-                window.onbeforeunload = function(event) {
-                    virtual.stop();
-                    virtual.unregister();
-                };
 			}
             
 			

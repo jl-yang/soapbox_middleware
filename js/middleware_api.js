@@ -1013,7 +1013,6 @@ var middleware = (function() {
 		this.setup = setupVideoDisplayObject;
 		this.connect = connectMiddleware;
         this.register = registerInMiddleware;
-        this.unregister = unregisterItself;
         this.start = startBroadcast;
         this.stop = stopBroadcast;  //Only for speaker
 		this.send = sendMessageToMiddleware;
@@ -1079,6 +1078,10 @@ var middleware = (function() {
             //None
             console.log(speech_info);
         }
+        
+        window.onbeforeunload = function(event) {
+            unregisterItself();
+		};
         
         //Try to tell signaling server that it is about to leave watching the virtual soapbox 
 		function unregisterItself() {

@@ -20,13 +20,10 @@
                 virtual.register();                
             });
 			
-            virtual.onstop = function() {
+            virtual.onstopspeech = function() {
                 console.debug("Speech is stopped now");
             }
             
-            window.onbeforeunload = function(event) {
-                virtual.unregister();
-            }
 		</script>
 	</body>
 	
