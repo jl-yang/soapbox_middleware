@@ -469,7 +469,7 @@ var middleware = (function() {
             var message_object = {
                 'sender': self.itself,
                 'receiver': "middleware",
-                'timestamp': new Date().toISOString(),
+                'timestamp': (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString(),
                 'type': type,
                 'data': payload || {}
             };
@@ -521,7 +521,7 @@ var middleware = (function() {
                 videoBlobs.push(blobs.video);
                 audioBlobs.push(blobs.audio);
                 //Save streams
-                var qqq = saveAs(blobs.video, "speech-video_" + new Date().toISOString() + ".webm");
+                var qqq = saveAs(blobs.video, "speech-video_" + (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString() + ".webm");
                 console.debug(qqq);
                 console.debug("SaveAs done now");
                 //saveAs(blobs.audio, "speech-audio_" + new Date().toISOString() + ".wav");
@@ -757,7 +757,7 @@ var middleware = (function() {
 			}
 		}
 		
-		function stopSpeechTransmission(initiative) {
+		function stopSpeechTransmission() {
             if(PeerConnection && PeerConnection.signalingState != "closed") {
                 PeerConnection.close();
                 PeerConnection = null;						
@@ -785,7 +785,7 @@ var middleware = (function() {
 			var message_object = {
 				'sender': self.itself,
 				'receiver': "middleware",
-				'timestamp': new Date().toISOString(),
+				'timestamp': (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString(),
 				'type': type,
 				'data': payload || {}
 			};
@@ -881,7 +881,7 @@ var middleware = (function() {
 			var message_object = {
 				'sender': self.itself,
 				'receiver': "middleware",
-				'timestamp': new Date().toISOString(),
+				'timestamp': (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString(),
 				'type': type,
 				'data': payload || {}
 			};
@@ -1209,6 +1209,7 @@ var middleware = (function() {
 							}
                             //From soapbox speaker
                             else if (signal.type == "stop_broadcast") {
+                                stopSpeechTransmission();
                                 self.onstopspeech();
                             }                                
                             //From virtual receiver
@@ -1255,7 +1256,7 @@ var middleware = (function() {
             sendMessageToMiddleware("stop_broadcast", {"virtual_id": virtual_id});
         }        
                 
-		function stopSpeechTransmission(initiative) {
+		function stopSpeechTransmission() {
             console.log("Stopping speech transmission now")
             if(PeerConnection && PeerConnection.signalingState != "closed") {
                 PeerConnection.close();
@@ -1353,11 +1354,13 @@ var middleware = (function() {
             peers[receiver_id] = Offer.createOffer(options);			
 		}
 		
+        // consider timezone effect: offset in milliseconds
+        // http://stackoverflow.com/questions/10830357/javascript-toisostring-ignores-timezone-offset
         function sendMessageToMiddleware(type, payload) {     
             var message_object = {
                 'sender': self.itself,
                 'receiver': "middleware",
-                'timestamp': new Date().toISOString(),
+                'timestamp': (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString(),
                 'type': type,
                 'data': payload || {}
             };

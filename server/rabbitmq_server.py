@@ -9,6 +9,9 @@ import time
 
 from pymongo import MongoClient
 
+from safe_print import safe_print
+
+
 SPEECH_INFO_KEY_ID = "starttime"
 SPEECH_INFO_KEY_PASSWORD = "password"
 SPEECH_INFO_KEY_TOPIC = "topic"
@@ -683,17 +686,17 @@ class Middleware(object):
         
         if type != "ice-candidate":
             if is_receiving is True:
-                print " [x] Message received.      Type:", \
-                    "{0: <30}".format(type), \
-                    "{0: <15}".format(sender), \
-                    ">>", \
-                    "{0: >15}".format(receiver)
+                safe_print( " [x] Message received.      Type:" + \
+                    "{0: <30}".format(type) + \
+                    "{0: <15}".format(sender) + \
+                    ">>" + \
+                    "{0: >15}".format(receiver) )
             else:
-                print " [*] Message sent.          Type:", \
-                    "{0: <30}".format(type), \
-                    "{0: <15}".format(sender), \
-                    ">>", \
-                    "{0: >15}".format(receiver)
+                safe_print( " [*] Message sent.          Type:" + \
+                    "{0: <30}".format(type) + \
+                    "{0: <15}".format(sender) + \
+                    ">>" + \
+                    "{0: >15}".format(receiver) )
         
         return type, sender, receiver, data, ts
         
