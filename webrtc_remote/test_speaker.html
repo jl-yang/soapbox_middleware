@@ -8,11 +8,13 @@
 	</head>
 	<body>
         <div id="container">
-            <video id="localVideo" autoplay></video>         			
+            <video id="localVideo" autoplay></video>        
+            <video id="hotspotVideo" autoplay></video>         			
         </div>
 		<script>
         
             var localVideo = document.getElementById('localVideo');
+            var hotspotVideo = document.getElementById('hotspotVideo');
 			var self = this;
 			var localStream;
             
@@ -44,8 +46,19 @@
                 window.speech_info = speech_info;
                 
                 virtual.connect(function(){
-					virtual.register();
+					//onaddhotspotstream callback should be set before everything, when connected
+                    virtual.onaddhotspotstream = function(event) {
+                        console.debug("Now we have a hotspot stream");
+                        console.debug(event.stream);
+                        console.debug(hotspotVideo);
+                        hotspotVideo.src = URL.createObjectURL(event.stream);
+                    }
+                    
+                    
+                    virtual.register();
                     virtual.setup(localVideo);
+                    
+                    virtual.start(localStream, speech_info);
                     
                     virtual.onregister = function() {
                         //virtual.start(stream, speech_info);
@@ -53,6 +66,10 @@
 					
 				});	
                 
+                window.onbeforeunload = function(event) {
+                    //Only for speaker
+                    virtual.stop();
+                }
 			}
             
 			

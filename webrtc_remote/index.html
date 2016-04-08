@@ -9,17 +9,35 @@
 	<body>
 		<div id="container">
 			<video id="remoteVideo" autoplay muted></video>
+            <video id="localVideo" autoplay muted></video>
 		</div>
 		
 		<script>
 			var remoteVideo = document.getElementById('remoteVideo');
-			
+			var localVideo = document.getElementById('localVideo');
 			//Example usage
 			
 			var hotspot = new Hotspot();
+            
 			hotspot.setup(remoteVideo);
+            
 			hotspot.connect(function () {                
                 hotspot.register();
+                
+                navigator.getUserMedia(
+                    {
+                        video: true,
+                        audio: true
+                    }, 
+                    function(stream) {
+                        localVideo.src = URL.createObjectURL(stream); 
+                        
+                        hotspot.addStream(stream);
+                    }, 
+                    function (error) {
+                        console.log('navigator.getUserMedia error: ', error);
+                    }
+                );
                 
 			});
 			

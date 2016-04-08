@@ -13,11 +13,13 @@
 	</head>	
     <body>
         <div id="container">
-            <video id="localVideo" autoplay></video>         			
+            <video id="localVideo" autoplay></video>       
+            <video id="hotspotVideo" autoplay></video>   
         </div>
 		<script>  
             
 			var localVideo = document.getElementById('localVideo');
+            var hotspotVideo = document.getElementById('hotspotVideo');
 			var self = this;
 			var localStream;
 			var soapbox;
@@ -42,6 +44,14 @@
                 soapbox = new Soapbox();
 				stomp = soapbox.connect(function () {
 					
+                    //onaddhotspotstream callback should be set before everything, when connected
+                    soapbox.onaddhotspotstream = function(event) {
+                        console.debug("Now we have a hotspot stream");
+                        console.debug(event.stream);
+                        console.debug(hotspotVideo);
+                        hotspotVideo.src = URL.createObjectURL(event.stream);
+                    }
+                    
                     soapbox.register();
                     
                     soapbox.submit({"starttime": current_time_string(), "speaker": "Jilin",

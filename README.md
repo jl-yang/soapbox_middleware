@@ -23,6 +23,11 @@ var soapbox = new Soapbox();
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 soapbox.connect(function () {
+    //onaddhotspotstream callback should be set before everything, when connected
+    soapbox.onaddhotspotstream = function(event) {
+        hotspotVideo.src = URL.createObjectURL(event.stream);
+    }
+    
     //Mandatory, register itself
     soapbox.register();
 
@@ -155,6 +160,20 @@ hotspot.connect(function () {
 
     //Mandatory, register itself
 	hotspot.register();
+    
+    navigator.getUserMedia(
+        {
+            video: true,
+            audio: true
+        }, 
+        function(stream) {
+            //Add the hotspot stream so that physical soapbox and virtual users can view it
+            hotspot.addStream(stream);
+        }, 
+        function (error) {
+            console.log('navigator.getUserMedia error: ', error);
+        }
+    );
 });
 
 //Make sure now you are already connected, otherwise it could fail
@@ -206,8 +225,10 @@ Example:
 var virtual = new Virtual("unique-name");   //Example name: "" + Math.random()
 
 //Setup the video object for displaying remote stream
-var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element
-virtual.setup(remoteVideo);
+var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element for soapbox
+var hotspotVideo = document.getElementById('hotspotVideo'); //It should be your video element for hotspot
+
+virtual.setup(remoteVideo, hotspotVideo);
 
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams

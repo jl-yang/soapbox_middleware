@@ -996,7 +996,10 @@ class Middleware(object):
                 self.virtuals.append({"id": _virtual_id, "name": data["name"]})
                 #Need to send this registered id to the exact virtual that is registering, use unique name field from virtual caller
                 self.send_virtual("register", {"receiver_id": _virtual_id, "name": data["name"]})
-                                
+                
+                #Ask for a hotspot's offer
+                #self.send_hotspot
+                
                 ongoing = self.db.ongoing_speech()   
                 if ongoing is not None:
                     #Add itself as a new user to current speech
@@ -1009,11 +1012,15 @@ class Middleware(object):
                     self.send_virtual("dislikes", {"dislikes": self.db.get_speech_dislikes(ongoing["speech_id"]), "receiver_id": _virtual_id})
                     for comment in self.db.get_speech_comments(ongoing["speech_id"]):
                         self.send_virtual("comment", {"comment": {"username": comment[COMMENT_KEY_NAME], "content": comment[COMMENT_KEY_CONTENT]}, "receiver_id": _virtual_id})
-                                                
+                                                                    
                     #Request an offer for virtual client   
                     self.threaded_send_request_offer(_virtual_id, self.launcher_of_onging_speech(), "virtual", self.virtual_speaker_id) 
                 
+            elif type == "offer_hotspot" and "sdp" in data:
+                #If there is a hotspot running, then get its stream
                 
+            
+            
             #Only receiver will send this message to middleware
             elif type == "unregister":
                 if "virtual_id" not in data:

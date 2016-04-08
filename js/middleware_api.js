@@ -79,14 +79,13 @@ var middleware = (function() {
 	};	
     
     var Offer = {
-        _id: null,
-        createOffer: function(config) {
+        createOffer: function(config) {   
             var peer = new RTCPeerConnection(PeerConnection_Config);
             if(config.hotspot_id) {
-                this._id = config.hotspot_id;
+                console.log("Creating an offer for hotspot_id:", config.hotspot_id);
             }
             else if (config.virtual_id) {
-                this._id = config.virtual_id;
+                console.log("Creating an offer for virtual_id:", config.virtual_id);
             }
             if (config.stream) {    
                 try {
@@ -107,10 +106,13 @@ var middleware = (function() {
             peer.oniceconnectionstatechange = function(event) {
                 //Nothing
             }
+            if (config.onaddstream) {
+                peer.onaddstream = config.onaddstream;
+            }
             
             var _desc = null;
             function gotLocalDescription() {           
-                console.log("Got local description for _id:", config._id);                      
+                console.log("Got local description");                      
                 config.gotLocalDescription(_desc);
             }
             
@@ -177,6 +179,15 @@ var middleware = (function() {
 			OfferToReceiveVideo: true
 		};        
         
+        // for Chrome:
+        var sdpConstraintsTest = {
+            optional: [],
+            mandatory: {
+                OfferToReceiveAudio: true,
+                OfferToReceiveVideo: true
+            }
+        };
+        
         var peers = {};
         this.peers = peers;
         this.itself = "soapbox";
@@ -208,6 +219,9 @@ var middleware = (function() {
         
         this.onreceivecurrentusers = onReceiveCurrentUsers;
         this.onreceivestartfeedback = onReceiveStartFeedback;
+        
+        this.onaddhotspotstream = function(event) {};
+        this.onaddvirtualstream = function(event) {};
         
         function onReceiveStartFeedback() {
             //None
@@ -459,7 +473,8 @@ var middleware = (function() {
                     "gotLocalDescription": function (description) {      
                         sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': receiver_id});
                     },
-                    "sdpConstraints": sdpConstraints
+                    "sdpConstraints": sdpConstraintsTest,
+                    "onaddstream": self.onaddhotspotstream
                 };   
             }
             peers[receiver_id] = Offer.createOffer(options);			
@@ -615,6 +630,24 @@ var middleware = (function() {
         
         this.onreceivecurrentusers = onReceiveCurrentUsers;
         
+        this.addStream = function(stream){
+            waitForSpeechTransmission();
+            PeerConnection.addStream(stream);
+        };
+        
+        var sdpConstraintsForHotspot = {
+			OfferToReceiveAudio: true,
+			OfferToReceiveVideo: true
+		};  
+        
+        var sdpConstraintsTest = {
+            optional: [],
+            mandatory: {
+                OfferToReceiveAudio: true,
+                OfferToReceiveVideo: true
+            }
+        };
+        
 		function onReceiveCurrentUsers(count) {
             //None
         }
@@ -698,13 +731,15 @@ var middleware = (function() {
                                             _gotLocalDescription, 
                                             function (error) {
                                                 console.log('Failed to create answer: ' + error.toString());
-                                        });
+                                        }, sdpConstraintsTest);
                                     },
                                     function (error) {
                                         console.log('Error: ' + error.toString());
                                 });
 							} 
 							else if(signal.type == "ice-candidate" && signal.data.ice) {
+                                //Either offer or an ice candidate comes first
+                                waitForSpeechTransmission();
 								PeerConnection.addIceCandidate(new RTCIceCandidate(signal.data.ice));
 							}
                             //From virtual speaker
@@ -992,6 +1027,17 @@ var middleware = (function() {
 		var ws, stomp, send_queue;
 		var PeerConnection, remoteVideo, remoteStream, virtual_id;//PeerConnection is for receiver role
 		
+        //For hotspot stream
+        var PeerConnection_Hotspot, hotspotVideo;        
+        PeerConnection_Hotspot = new RTCPeerConnection(PeerConnection_Config);
+        console.log('Created PeerConnection for hotspot');
+        PeerConnection_Hotspot.onicecandidate = function (event) {
+            if (event.candidate !== null) {
+                sendMessageToMiddleware('ice-candidate_hotspot', {'ice': event.candidate, 'virtual_id': virtual_id});                 
+            }
+        };
+        PeerConnection_Hotspot.onaddstream = _gotStreamFromHotspot;	
+        
         //From soapbox related
         var localStream, speech_info;        
         var sdpConstraints = {
@@ -1015,6 +1061,7 @@ var middleware = (function() {
         this.register = registerInMiddleware;
         this.start = startBroadcast;
         this.stop = stopBroadcast;  //Only for speaker
+        this.cleanup = cleanUp;     //For all
 		this.send = sendMessageToMiddleware;
 		this.like = addLike;
 		this.dislike = addDislike;
@@ -1028,6 +1075,19 @@ var middleware = (function() {
         this.onreceivestartfeedback = onReceiveStartFeedback;
         this.onstopspeech = onStopSpeech;
         this.onreceivecurrentusers = onReceiveCurrentUsers;
+                
+        var sdpConstraintsTest = {
+            optional: [],
+            mandatory: {
+                OfferToReceiveAudio: true,
+                OfferToReceiveVideo: true
+            }
+        };
+        
+        function cleanUp() {
+            PeerConnection_Hotspot.close();
+            PeerConnection_Hotspot = null;
+        }
         
         function onStopSpeech() {
             //None
@@ -1088,8 +1148,9 @@ var middleware = (function() {
             sendMessageToMiddleware("unregister", {"virtual_id": virtual_id});
 		};
                 
-        function setupVideoDisplayObject(remoteVideoObject) {
+        function setupVideoDisplayObject(remoteVideoObject, hotspotVideoObject) {
 			self.remoteVideo = remoteVideoObject;
+            self.hotspotVideo = hotspotVideoObject;
 		}
         
         function registerInMiddleware(){
@@ -1136,7 +1197,7 @@ var middleware = (function() {
                             if (typeof virtual_id !== "undefined" && typeof signal.data !== "undefined"
                                 && typeof signal.data.receiver_id !== "undefined" 
                                 && virtual_id !== signal.data.receiver_id) {
-                                console.log("something");
+                                console.debug("Not for me");
                                 return;
                             }                            
                             if (signal.type == "register" && signal.data.receiver_id && typeof virtual_id == "undefined" 
@@ -1148,7 +1209,6 @@ var middleware = (function() {
                             //Act as receiver
                             else if (signal.type == "offer" && signal.data.sdp) {				
 								waitForSpeechTransmission();		
-                                console.debug("PeerConnection:", PeerConnection);
 								PeerConnection.setRemoteDescription(
                                     new RTCSessionDescription(signal.data.sdp), 
                                     function () {
@@ -1163,6 +1223,24 @@ var middleware = (function() {
                                         console.log('Error: ' + error.toString());
                                 });
 							} 
+                            //Act as receiver for hotspot stream
+                            else if (signal.type == "offer_hotspot" && signal.data.sdp) {
+								PeerConnection_Hotspot.setRemoteDescription(
+                                    new RTCSessionDescription(signal.data.sdp), 
+                                    function () {
+                                        PeerConnection_Hotspot.createAnswer(
+                                            _gotLocalDescriptionForHotspot, 
+                                            function (error) {
+                                                console.log('Failed to create answer: ' + error.toString());
+                                        });
+                                    },
+                                    function (error) {
+                                        console.log('Error: ' + error.toString());
+                                });
+							} 
+                            else if (signal.type == "ice-candidate_hotspot" && signal.data.ice) {
+                                PeerConnection_Hotspot.addIceCandidate(new RTCIceCandidate(signal.data.ice));
+                            }                                
                             //From speaker, important to decide if virtual id is non-existing
                             else if(signal.type == "ice-candidate" && signal.data.ice 
                                 && !signal.data.virtual_id && !signal.data.hotspot_id) {
@@ -1305,12 +1383,30 @@ var middleware = (function() {
 			);  
 		}
         
+        function _gotLocalDescriptionForHotspot(description) {
+			PeerConnection_Hotspot.setLocalDescription(
+				description,	
+				function () {
+					console.log('Answer sdp generated for hotspot');
+                    sendMessageToMiddleware('answer_hotspot', {'sdp': description || PeerConnection_Hotspot.localDescription, 'virtual_id': virtual_id});
+				}, 
+				function () { 
+					console.log("Set local description error");
+				}
+			);  
+		}        
+        
         function _gotRemoteStream(event) {			
 			console.log('Received remote stream');
             console.log(event);
 			self.remoteStream = event.stream;
 			self.remoteVideo.src = URL.createObjectURL(event.stream);
 		}
+        
+        function _gotStreamFromHotspot(event) {
+            console.log("Received hotspot stream");
+            self.hotspotVideo.src = URL.createObjectURL(event.stream);
+        }
         
         //Only tells middleware that it wants to start broadcasting now, middleware will ask for offer
 		function startBroadcast(stream, speech_info) {
@@ -1348,7 +1444,8 @@ var middleware = (function() {
                     "gotLocalDescription": function (description) {      
                         sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': receiver_id});
                     },
-                    "sdpConstraints": sdpConstraints
+                    "sdpConstraints": sdpConstraintsTest,
+                    "onaddstream": self.onaddhotspotstream
                 };   
             }
             peers[receiver_id] = Offer.createOffer(options);			
