@@ -56,13 +56,10 @@
                     
                     soapbox.submit({"starttime": current_time_string(), "speaker": "Jilin",
                         "topic": "Today is hot!", "password": 1234});
-					
                     
                     soapbox.onreceivelikes = function (likes) {
                         console.log("I got likes update:" + likes);
-                    };
-                    
-                    
+                    };                    
                     
                     soapbox.start(stream);
                     

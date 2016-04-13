@@ -30,6 +30,7 @@
                         audio: true
                     }, 
                     function(stream) {
+                        console.debug("Getting local stream from camera now");
                         localVideo.src = URL.createObjectURL(stream); 
                         
                         hotspot.addStream(stream);

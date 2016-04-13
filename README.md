@@ -26,7 +26,7 @@ soapbox.connect(function () {
     //onaddhotspotstream callback should be set before everything, when connected
     soapbox.onaddhotspotstream = function(event) {
         hotspotVideo.src = URL.createObjectURL(event.stream);
-    }
+    };
     
     //Mandatory, register itself
     soapbox.register();
@@ -46,23 +46,18 @@ soapbox.connect(function () {
         //1 means valid password but not for next speech
         //0 means invalid password
         //-1 means now no reservation at all 
-    }    
+    };    
     //Request validating a password to check if it is for the next speech
     soapbox.validate(password);
     
     //Callback of deleting a speech
     soapbox.ondeletespeech = function(success) {
         //success is a boolean value: true or false
-    }
+    };
     //Delete a speech based on corresponding password
     soapbox.delete_speech(password);
     
-    //Adding hotspot camera feeds
-    soapbox.onaddhotspot = function(hotspotStream) {
-        //maybe assign it to another video object
-        another_video_stream = hotspotStream;
-        another_video_object = URL.createObjectURL(hotspotStream);
-    }
+    
     //Might be problematic when hotspot website is not using ssl, since camera usage requires confirmation by pressing button in pop-up window
     
 });
@@ -217,6 +212,7 @@ audience.connect(function () {
 ```
 
 # Virtual soapbox
+> Suppose virtuals are all open after hotspots are online
 
 ##How to receive the speech
 Example:
@@ -247,6 +243,11 @@ virtual.connect(function () {
     
     virtual.onstopspeech = function() {
         //Now the speech given by physical soapbox is stopped.
+    };
+    
+    virtual.onaddhotspotstream = function(event) {
+        //Should assign it based on your logics
+        hotspotVideo.src = URL.createObjectURL(event.stream);
     }
 });
 
@@ -375,6 +376,8 @@ Second, close the whole browser and restart it again.
 11. Virtual web apps cannot receive video, but meanwhile hotspot web apps can.
 *Such weird problem can be fixed simply by closing your firewall temporarily. Also, having same network is mandotary without justified reasons. E.g.: you need to use PanOulu for both speakers and receivers*
 
+12. Sometimes soapbox cannot receive stream from hotspot, but hotspot can receive stream from soapbox? Why is that?
+ - Because the key lies on creating the RTCPeerConnection object exactly at the right now, don't do it too early, since ice candidate will be gathered and sent to middleware, but maybe the counterpart is not ready yet. Also don't do it too late when sdp or ice is coming, there must be a new RTCPeerConnection object there. Refer to the usage of waitForSpeechTransmission() function in hotspot API in commit: a1a8804, which is a successful example.
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.
 2. Add comments

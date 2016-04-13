@@ -9,11 +9,14 @@
 	<body>
         <div id="container">
             <video id="remoteVideo" autoplay muted></video>
+            <video id="hotspotVideo" autoplay muted></video>
         </div>
 		<script>
             var virtual = new Virtual();
             
             var remoteVideo = document.getElementById('remoteVideo');
+            var hotspotVideo = document.getElementById('hotspotVideo');
+            
             virtual.setup(remoteVideo);
             
             virtual.connect(function() {
@@ -23,6 +26,11 @@
             virtual.onstopspeech = function() {
                 console.debug("Speech is stopped now");
             }
+            
+            virtual.onaddhotspotstream = function(event) {
+                console.debug("Receiving remote stream from hotspot now:", event.stream);
+                hotspotVideo.src = URL.createObjectURL(event.stream); 
+            };
             
 		</script>
 	</body>
