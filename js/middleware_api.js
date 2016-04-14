@@ -205,7 +205,7 @@ var middleware = (function() {
 		this.send = sendMessageToMiddleware;
 		this.onreceivelikes = function onReceiveLikesUpdate(likes) {};
 		this.onreceivedislikes = function onReceiveDislikesUpdate(dislikes) {};
-		this.onreceivereports = function onReceiveReportsUpdate(reports) {};
+		this.onreceivereports = function onReceiveReportsUpdate(reports) {};        
 		this.onreceivecomment = function onReceiveComment(comment) {};
         this.onreceivenextspeechinfo = function onReceiveNextSpeechInfo(speech_info) {};
         this.onreceiveallspeeches = function onReceiveAllSpeeches(speeches) {};
@@ -551,12 +551,13 @@ var middleware = (function() {
 		this.like = addLike;
 		this.dislike = addDislike;
 		this.report = reportInappropriateContent;
-		this.onreceivelikes = onReceiveLikesUpdate;
-		this.onreceivedislikes = onReceiveDislikesUpdate;
-		this.onreceivecomment = onReceiveComment;
-        this.onreceivespeechinfo = onReceiveSpeechInfo;
+		this.onreceivelikes = function onReceiveLikesUpdate(likes) {};
+		this.onreceivedislikes = function onReceiveDislikesUpdate(dislikes) {};
+        this.onreceivereports = function onReceiveReportsUpdate(reports) {};
+		this.onreceivecomment = function onReceiveComment(username, content) {};
+        this.onreceivespeechinfo = function onReceiveSpeechInfo(speech_info) {};
         
-        this.onreceivecurrentusers = onReceiveCurrentUsers;
+        this.onreceivecurrentusers = function onReceiveCurrentUsers(count) {};
         
         this.addStream = function(stream){
             //Save local stream object so that it could be added for future offers for virtual
@@ -571,28 +572,6 @@ var middleware = (function() {
         var streams = {};
         this.peers = peers;
         this.streams = streams;
-        
-		function onReceiveCurrentUsers(count) {
-            //None
-        }
-        
-        //Default handler
-		function onReceiveLikesUpdate(likes) {
-			//None
-		}
-		
-		function onReceiveDislikesUpdate(dislikes) {
-			//None
-		}
-		        
-        function onReceiveComment(username, content) {
-            //None
-        }
-		
-        function onReceiveSpeechInfo(speech_info) {
-            //None
-            console.log(speech_info);
-        }
         
 		//Try to tell signaling server that it is about to close
 		window.onbeforeunload = function(event) {
@@ -634,52 +613,12 @@ var middleware = (function() {
             //For sending hotspot streams to virtual
             else if (type == "request_offer_virtual" && data != null && typeof data.virtual_id !== "undefined") {
                 createOffer(data.virtual_id);
-                /*
-                if (!(data.virtual_id in self.peers)) {
-                    self.peers[data.virtual_id] = new RTCPeerConnection(PeerConnection_Config);
-                
-                    //send local ice candidate to virtual
-                    self.peers[data.virtual_id].onicecandidate = function (event) {
-                        if (e.candidate != null){
-                            sendMessageToMiddleware("ice-candidate_hotspot", {"ice": event.candidate, "hotspot_id": hotspot_id, "receiver_id": data.virtual_id});
-                        }
-                    }
-                }
-                
-                //create offer
-                self.peers[data.virtual_id].createOffer(function(offer) {
-                    self.peers[data.virtual_id].setLocalDescription(offer, function(){
-                        //Send the offer
-                        sendMessageToMiddleware("offer_hotspot", {"sdp": offer, "hotspot_id": hotspot_id, "receiver_id": data.virtual_id});
-                    }, error);
-                }, error, sdpConstraintsForHotspot);
-                
-                //add stream
-                //If stream is null, then this audience shows up too early unfortunately
-                if(self.localStream != null) {
-                    console.debug(self.peers[data.virtual_id]);
-                    console.debug("Adding hotspot stream now: ", self.localStream);
-                    self.peers[data.virtual_id].addStream(self.localStream);
-                } else {
-                    console.warn("localStream is null");
-                }
-                
-                //store the future stream and wait for signaling server to start using it to display
-                self.peers[data.virtual_id].onaddstream = function (event) {
-                    console.debug("Receive remote stream now: ", event.stream);
-                    self.streams[data.virtual_id] = event.stream;
-                };*/
             }
             
             //Either answer or remote ice comes first 
             else if (type == "answer_hotspot" && data != null && typeof data.sdp !== "undefined"
                 && typeof data.virtual_id !== "undefined") {
                 console.debug("Got remote sdp from virtual:", data.sdp);
-                /*self.peers[data.virtual_id].setRemoteDescription(
-                    new RTCSessionDescription(data.sdp), 
-                    function() {
-                        sendMessageToMiddleware("ready_hotspot", null);
-                });*/
                 peers[data.virtual_id].setRemoteDescription(data.sdp,
                     function() {
                         sendMessageToMiddleware("ready_hotspot", null);
@@ -689,10 +628,6 @@ var middleware = (function() {
             //ice would come later than request_offer_virtual
             else if (type == "ice-candidate_hotspot" && data != null && typeof data.ice !== "undefined"
                 && typeof data.virtual_id !== "undefined") {
-                /*if ((data.virtual_id in self.peers)) {
-                    console.debug("Adding an ice-candidate_hotspot")
-                    self.peers[data.virtual_id].addIceCandidate(new RTCIceCandidate(data.ice));                  
-                }                         */
                 peers[data.virtual_id].addIceCandidate(data.ice);
             }
             
@@ -746,6 +681,9 @@ var middleware = (function() {
             }
             else if(type == "dislikes" && data != null && typeof data.dislikes != "undefined") {
                 self.onreceivedislikes(data.dislikes);
+            }
+            else if (type == "reports" && data != null && typeof data.reports != "undefined") {
+                self.onreceivereports(data.reports);
             }
             else if(type == "comment" && data != null && typeof data.comment != "undefined") {
                 self.onreceivecomment(data.comment.username, data.comment.content);
@@ -912,6 +850,7 @@ var middleware = (function() {
 		this.report = reportInappropriateContent;
 		this.onreceivelikes = onReceiveLikesUpdate;
 		this.onreceivedislikes = onReceiveDislikesUpdate;
+        this.onreceivereports = onReceiveReportsUpdate;
         this.onreceivespeechinfo = onReceiveSpeechInfo;
 		this.comment = addCommentToCurrentSpeech;
         this.submit = submitSpeechInfo;
@@ -1031,6 +970,9 @@ var middleware = (function() {
 							else if(signal.type == "dislikes") {
 								self.onreceivedislikes(signal.data.dislikes);
 							}	
+                            else if (signal.type == "reports") {
+                                self.onreceivereports(signal.data.reports);
+                            }
                             else if(signal.type == "current_speech_info") {
                                 self.onreceivespeechinfo(signal.data.current_speech_info);
                             }
@@ -1107,7 +1049,8 @@ var middleware = (function() {
 		};
         
 		this.onreceivelikes = function onReceiveLikesUpdate(likes) {};        
-		this.onreceivedislikes = function onReceiveDislikesUpdate(dislikes) {};        
+		this.onreceivedislikes = function onReceiveDislikesUpdate(dislikes) {};
+        this.onreceivereports = function onReceiveReportsUpdate(reports) {};
 		this.onreceivecomment = function onReceiveComment(username, content) {};        
         this.onreceivespeechinfo = function onReceiveSpeechInfo(speech_info) {console.log(speech_info);};        
         this.onregister = function onRegister() {};        
@@ -1257,6 +1200,9 @@ var middleware = (function() {
             }
             else if(type == "dislikes" && data != null && typeof data.dislikes != "undefined") {
                 self.onreceivedislikes(data.dislikes);
+            }
+            else if (type == "reports" && data != null && typeof data.reports != "undefined") {
+                self.onreceivereports(data.reports);
             }
             else if(type == "comment" && data != null && typeof data.comment != "undefined") {
                 self.onreceivecomment(data.comment.username, data.comment.content);

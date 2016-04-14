@@ -1190,6 +1190,14 @@ class Middleware(object):
                 
                 print "[*] Reports updated: ", reports
                 
+                if reports is not None:
+                    self.send_soapbox("reports", {"reports": reports})
+                    self.send_hotspot("reports", {"reports": reports})
+                    self.send_audience("reports", {"reports": reports})
+                    #Won't send virtual users when the speech is given by virtual speaker
+                    if sender == "virtual":
+                        return
+                    self.send_virtual("reports", {"reports": reports})
             
             
     #Test hotspot    
