@@ -1,0 +1,41 @@
+<html>
+	<head>
+		<title>Try to display screen as video stream</title>        
+		<script src="../js/adapter.js"></script>
+	</head>
+	<body>
+		<div id="container">
+            <video id="screenVideo" autoplay muted></video>
+		</div>
+		
+		<script>
+			var screenVideo = document.getElementById('screenVideo');
+            
+            //On chrome, you requested audio-stream alongwith 'chromeMediaSource' – it is not permitted on chrome. Remember, Firefox is supporting audio+screen from single getUserMedia request.
+			
+            
+            
+            navigator.getUserMedia(
+                {
+                    video: {
+                        optional: [],
+                        mandatory: {
+                            chromeMediaSource: "screen"
+                        }
+                    },
+                    audio: false
+                }, 
+                function(stream) {
+                    console.debug("Getting local stream from screen now");
+                    screenVideo.src = URL.createObjectURL(stream); 
+                }, 
+                function (error) {
+                    console.log('navigator.getUserMedia error: ', error);
+                }
+            );
+			
+			
+		</script>
+	</body>
+	
+</html>

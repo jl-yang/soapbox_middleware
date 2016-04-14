@@ -188,7 +188,7 @@ var middleware = (function() {
     
 	//API for Soapbox website
 	window.Soapbox = function() {
-        var self = this;
+        var self = this, soapbox_id;
 		var ws, stomp, send_queue;
 		var localStream, speech_info;
 				
@@ -276,8 +276,12 @@ var middleware = (function() {
 		}
         
         function onMessage(type, data) {
+            if (type == "register" && data != null && typeof data.soapbox_id != "undefined") {
+                console.debug("Soapbox id: ", data.soapbox_id);
+                self.soapbox_id = data.soapbox_id;
+            }   
             //Assume soapbox will fire the offer according to middleware's request
-            if (type == "answer" && data != null && typeof data.sdp != "undefined") {
+            else if (type == "answer" && data != null && typeof data.sdp != "undefined") {
                 
                 console.debug(peers[data.hotspot_id]);
                 
@@ -417,7 +421,7 @@ var middleware = (function() {
         }
         
         function stopBroadcast() {
-            sendMessageToMiddleware("stop_broadcast", null);
+            sendMessageToMiddleware("stop_broadcast", {"soapbox_id": self.soapbox_id});
         }
         
         //Called when middleware sends a request_offer message.
@@ -756,6 +760,9 @@ var middleware = (function() {
                     }
                 };
 				PeerConnection.onaddstream = _gotRemoteStream;
+                if (self.localStream != null) {
+                    PeerConnection.addStream(self.localStream);
+                }                
 			}
 		}
 		
@@ -992,7 +999,7 @@ var middleware = (function() {
 		}
 	};
 	
-    //API for Virtual soapboax
+    //API for Virtual soapbox
 	window.Virtual = function(name) {
         var self = this;
 		var ws, stomp, send_queue;

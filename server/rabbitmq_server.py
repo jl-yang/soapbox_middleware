@@ -787,7 +787,9 @@ class Middleware(object):
                 self.soapbox["id"] = _uuid                    
                 #When soapbox is down and everyone is waiting, the soapbox should give enough offers once reconnects
                 self.IS_SOAPBOX_READY = True
-                                
+                
+                self.send_soapbox("register", {"soapbox_id": self.soapbox["id"]})
+                
                 #Send likes and dislikes updates in case soapbox is trying to reconnect
                 
                 print "Current hotspots: ", self.hotspots   
@@ -855,11 +857,13 @@ class Middleware(object):
                     
                     
             #Stop speech transmission in hotspot website according to message from soapbox website
-            elif type == "stop_broadcast":   
+            elif type == "stop_broadcast" and "soapbox_id" in data:   
                 ongoing = self.db.ongoing_speech()
                                 
-                if ongoing is not None:
+                if ongoing is not None and self.launcher_of_onging_speech() == "soapbox" and data["soapbox_id"] == self.soapbox["id"]:
                     self.db.speech_stop(ongoing["speech_id"], ts)
+                else:
+                    print "Either no ongoing speech, or this soapbox is not the owner of the ongoing speech"
                     
                 #Just a message for all audience
                 self.send_audience("stop_broadcast", None)
@@ -901,7 +905,8 @@ class Middleware(object):
                     self.send_hotspot("request_offer_virtual", {"virtual_id": virtual["id"], "hotspot_id": _hotspot_id})                
                                     
                 #Do not Request an offer for hotspot client until soapbox is on and starting broadcasting                    
-                                
+                #self.threaded_send_request_offer(_hotspot_id, self.launcher_of_onging_speech(), "hotspot", self.virtual_speaker_id) 
+                
             elif type == "answer" and "sdp" in data and "hotspot_id" in data:
                 launcher = self.launcher_of_onging_speech()
                 if launcher == "soapbox":
@@ -1017,9 +1022,11 @@ class Middleware(object):
                     
                     #Also send speech info              
                     self.send_virtual("current_speech_info", {"current_speech_info": ongoing["submit_info"], "receiver_id": _virtual_id})
+                    
                     #Also send likes, dislikes info of ongoing speech                
                     self.send_virtual("likes", {"likes": self.db.get_speech_likes(ongoing["speech_id"]), "receiver_id": _virtual_id})
                     self.send_virtual("dislikes", {"dislikes": self.db.get_speech_dislikes(ongoing["speech_id"]), "receiver_id": _virtual_id})
+                    
                     for comment in self.db.get_speech_comments(ongoing["speech_id"]):
                         self.send_virtual("comment", {"comment": {"username": comment[COMMENT_KEY_NAME], "content": comment[COMMENT_KEY_CONTENT]}, "receiver_id": _virtual_id})
                                                                     

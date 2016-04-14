@@ -224,7 +224,7 @@ var virtual = new Virtual("unique-name");   //Example name: "" + Math.random()
 var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element for soapbox
 var hotspotVideo = document.getElementById('hotspotVideo'); //It should be your video element for hotspot
 
-virtual.setup(remoteVideo, hotspotVideo);
+virtual.setup(remoteVideo);
 
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
@@ -378,6 +378,8 @@ Second, close the whole browser and restart it again.
 
 12. Sometimes soapbox cannot receive stream from hotspot, but hotspot can receive stream from soapbox? Why is that?
  - Because the key lies on creating the RTCPeerConnection object exactly at the right now, don't do it too early, since ice candidate will be gathered and sent to middleware, but maybe the counterpart is not ready yet. Also don't do it too late when sdp or ice is coming, there must be a new RTCPeerConnection object there. Refer to the usage of waitForSpeechTransmission() function in hotspot API in commit: a1a8804, which is a successful example.
+
+
 #To do
 1. Enabel SSL and https, for both xampp and rabbitmq ssl options. Thus camera permission can be granted to the website permanently.
 2. Add comments
