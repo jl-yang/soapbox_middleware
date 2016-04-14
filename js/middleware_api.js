@@ -878,7 +878,11 @@ var middleware = (function() {
 		function onReceiveDislikesUpdate(dislikes) {
 			//None
 		}
-		        
+        
+        function onReceiveReportsUpdate(reports) {
+            //None
+        }
+        
         function onReceiveSpeechInfo(speech_info) {
             //None
         }
