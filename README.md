@@ -28,6 +28,11 @@ soapbox.connect(function () {
         hotspotVideo.src = URL.createObjectURL(event.stream);
     };
     
+    //Callback for knowing if the start action succeeds
+    soapbox.onreceivestartfeedback = function(feedback) {
+        //feedback is either "success", or "failure"
+    };
+    
     //Mandatory, register itself
     soapbox.register();
 

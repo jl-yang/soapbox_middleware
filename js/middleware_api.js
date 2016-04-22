@@ -1350,20 +1350,20 @@ var middleware = (function() {
             sendMessageToMiddleware("start_broadcast", typeof speech_info == "undefined" ? {"virtual_id": virtual_id} : {"speech_info": speech_info, "virtual_id": virtual_id});
             
             //Also add its stream to all hotspot connections now
-            for (hotspot_id in self.peers_hotspots) {
+            Object.keys(self.peers_hotspots).forEach( function(hotspot_id) {
                 if (localStream != null)
                     self.peers_hotspots[hotspot_id].addStream(localStream);
-            }
+            });
         }
         
         function stopBroadcast() {
             sendMessageToMiddleware("stop_broadcast", {"virtual_id": virtual_id});
                         
             //For all hotspots
-            for (hotspot_id in self.peers_hotspots) {
+            Object.keys(self.peers_hotspots).forEach( function(hotspot_id) {
                 if (localStream != null)
                     self.peers_hotspots[hotspot_id].removeStream(localStream);
-            }
+            });
         }        
             
         //Called when middleware sends a request_offer message.
