@@ -147,7 +147,7 @@ extract_date_time("25/11/2015 12:00", {"day": true, "year": true})
 Example:
 ```javascript
 //API object
-var hotspot = new Hotspot();
+var hotspot = new Hotspot("unique-hotspot-name");
 
 //Setup the video object for displaying remote stream
 var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element

@@ -541,7 +541,7 @@ var middleware = (function() {
     
     	
 	//API for Hotspot viewer website	
-	window.Hotspot = function () {
+	window.Hotspot = function (name) {
 		var self = this;
 		var ws, stomp, send_queue;
 		var PeerConnection, remoteVideo, remoteStream, localStream, hotspot_id;
@@ -585,9 +585,10 @@ var middleware = (function() {
 		function setupVideoDisplayObject(remoteVideoObject) {
 			self.remoteVideo = remoteVideoObject;
 		}
-		
+        
+        this.name = typeof name !== "undefined" ? name : "unknown-hotspot";		
         function registerInMiddleware(){
-            sendMessageToMiddleware("register", {"name": "test-hotspot-15"});
+            sendMessageToMiddleware("register", {"name": name});
         }
         
         //Called when middleware sends a request_offer_virtual message.

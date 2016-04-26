@@ -272,7 +272,7 @@ class dbHandler:
         else:
             return None
     
-    def add_user(self, timestamp, count=1):
+    def add_user(self, user_identity, timestamp, count=1):
         if self.ongoing_speech() is None:
             return None
         speech_id = self.ongoing_speech()["speech_id"]
@@ -280,6 +280,7 @@ class dbHandler:
         self.users.insert_one({
             "speech_id": speech_id,
             "timestamp": timestamp,
+            "user_identity": user_identity,
             "action": "online"
         })
         #Modify data in speeches document
@@ -293,7 +294,7 @@ class dbHandler:
         }})
         return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
     
-    def minus_user(self, timestamp, count=1):
+    def minus_user(self, user_identity, timestamp, count=1):
         if self.ongoing_speech() is None:
             return None
         speech_id = self.ongoing_speech()["speech_id"]
@@ -301,6 +302,7 @@ class dbHandler:
         self.users.insert_one({
             "speech_id": speech_id,
             "timestamp": timestamp,
+            "user_identity": user_identity,
             "action": "offline"
         })
         #Modify data in speeches document
@@ -315,7 +317,7 @@ class dbHandler:
         return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
     
     #Return total likes
-    def like_current_speech(self, sender, timestamp):
+    def like_current_speech(self, sender, sender_name, timestamp):
         if self.ongoing_speech() is None:
             print "like error"
             return None
@@ -323,12 +325,13 @@ class dbHandler:
         self.likes.insert_one({
             "speech_id": speech_id,
             "sender": sender,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "sender_name": sender_name,
         })
         return self.get_speech_likes(speech_id)
         
     #Return total dislikes
-    def dislike_current_speech(self, sender, timestamp):
+    def dislike_current_speech(self, sender, sender_name, timestamp):
         if self.ongoing_speech() is None:
             print "dislike error"
             return None
@@ -336,12 +339,13 @@ class dbHandler:
         self.dislikes.insert_one({
             "speech_id": speech_id,
             "sender": sender,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "sender_name": sender_name,
         })
         return self.get_speech_dislikes(speech_id)
     
     #Return total reports
-    def report_current_speech(self, sender, timestamp):
+    def report_current_speech(self, sender, sender_name, timestamp):
         if self.ongoing_speech() is None:
             print "report error"
             return None
@@ -349,12 +353,13 @@ class dbHandler:
         self.reports.insert_one({
             "speech_id": speech_id,
             "sender": sender,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "sender_name": sender_name,
         })
         return self.get_speech_reports(speech_id)
     
     #Nothing to return
-    def comment_current_speech(self, timestamp, sender, name, content):
+    def comment_current_speech(self, timestamp, sender, sender_name, name, content):
         if self.ongoing_speech() is None:
             print "comment error"
             return None
@@ -363,6 +368,7 @@ class dbHandler:
             "speech_id": speech_id,
             "sender": sender,
             "timestamp": timestamp,
+            "sender_name": sender_name,
             COMMENT_KEY_NAME: name,
             COMMENT_KEY_CONTENT: content
         })
@@ -840,7 +846,7 @@ class Middleware(object):
                 #Count all existing virtuals as current_users now
                 virtual_audience = len(self.virtuals)
                 if virtual_audience >= 1:
-                    self.add_user(ts, virtual_audience)
+                    self.add_user(ts, "virtual", virtual_audience)
                 
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
@@ -948,16 +954,21 @@ class Middleware(object):
                 _username = data["comment"][COMMENT_KEY_NAME]
                 _content = data["comment"][COMMENT_KEY_CONTENT]
                 
+                if sender == "virtual":
+                    name = self._id_2_name(data["virtual_id"], self.virtuals)
+                else:
+                    name = "audience"
+                
                 #Add comment to list
                 #Specify identity of the virtual user
                 if sender == "audience":
-                    self.db.comment_current_speech(ts, sender, _username, _content)
+                    self.db.comment_current_speech(ts, sender, name, _username, _content)
                 else:
                     #Virtual speaker is commenting on its own speech
                     if self.virtual_speaker_id is not None and "virtual_id" in data and self.virtual_speaker_id == data["virtual_id"]:
-                        self.db.comment_current_speech(ts, "virtual-speaker", _username, _content)
+                        self.db.comment_current_speech(ts, "virtual-speaker", name, _username, _content)
                     else:
-                        self.db.comment_current_speech(ts, "virtual-audience", _username, _content)
+                        self.db.comment_current_speech(ts, "virtual-audience", name, _username, _content)
                         
                 self.send_soapbox("comment", {"comment": {"username": _username, "content": _content}})
                 self.send_hotspot("comment", {"comment": {"username": _username, "content": _content}})
@@ -968,10 +979,10 @@ class Middleware(object):
                 self.send_virtual("comment", {"comment": {"username": _username, "content": _content}})
                 
             elif type == "online":
-                self.add_user(ts)
+                self.add_user(ts, sender)
                 
             elif type == "offline":
-                self.minus_user(ts)                
+                self.minus_user(ts, sender)                
             
         if sender == "soapbox" or sender == "audience":    
             if type == "submit" and "speech_info" in data and \
@@ -1018,7 +1029,7 @@ class Middleware(object):
                 ongoing = self.db.ongoing_speech()   
                 if ongoing is not None:
                     #Add itself as a new user to current speech
-                    self.add_user(ts)
+                    self.add_user(ts, "virtual")
                     
                     #Also send speech info              
                     self.send_virtual("current_speech_info", {"current_speech_info": ongoing["submit_info"], "receiver_id": _virtual_id})
@@ -1051,7 +1062,7 @@ class Middleware(object):
                         if virtual["id"] == data["virtual_id"]:
                             self.virtuals.pop(i)
                             #Remove this virtual as current user
-                            self.minus_user(ts)
+                            self.minus_user(ts, "virtual")
                             break
                     if self.virtual_speaker_id is not None:
                         self.send_virtual("unregister", {"receiver_id": self.virtual_speaker_id, "virtual_id": data["virtual_id"]})
@@ -1163,9 +1174,16 @@ class Middleware(object):
             if sender == "virtual" and "virtual_id" not in data:
                 return
             
+            if sender == "hotspot":
+                name = self._id_2_name(data["hotspot_id"], self.hotspots)
+            elif sender == "virtual":
+                name = self._id_2_name(data["virtual_id"], self.virtuals)
+            else:
+                name = "audience"            
+            
             #Control likes, dislikes, reports info 
             if type == "like":	
-                likes = self.db.like_current_speech(sender, ts)
+                likes = self.db.like_current_speech(sender, name, ts)
                 
                 print "[*] Likes updated: ", likes
                 if likes is not None:
@@ -1179,7 +1197,7 @@ class Middleware(object):
                 
             elif type == "dislike":	
                 #Add it to total
-                dislikes = self.db.dislike_current_speech(sender, ts)
+                dislikes = self.db.dislike_current_speech(sender, name, ts)
                                 
                 print "[*] Dislikes updated: ", dislikes
                 if dislikes is not None:
@@ -1193,7 +1211,7 @@ class Middleware(object):
                 
             elif type == "report":	
                 #Add it to total
-                reports = self.db.report_current_speech(sender, ts)
+                reports = self.db.report_current_speech(sender, name, ts)
                 
                 print "[*] Reports updated: ", reports
                 
@@ -1205,8 +1223,13 @@ class Middleware(object):
                     if sender == "virtual":
                         return
                     self.send_virtual("reports", {"reports": reports})
-            
-            
+    
+    def _id_2_name(self, id, array):
+        for item in array:
+            if item["id"] == id:
+                return item["name"]
+        return None
+        
     #Test hotspot    
     def on_exchange_declared(self, frame):
         self._channel.queue_declare(callback=self.on_queue_declared, 
