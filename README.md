@@ -188,7 +188,7 @@ hotspot.report()
 Example:
 ```javascript
 //API object
-var audience = new Audience();
+var audience = new Audience("unique-audience-id", "female", 25);
 
 //Each time you want to comment, you can use connection method first (different from hotspot and soapbox)
 audience.connect(function () {

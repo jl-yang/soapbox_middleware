@@ -272,17 +272,29 @@ class dbHandler:
         else:
             return None
     
-    def add_user(self, user_identity, timestamp, count=1):
+    def add_user(self, user_identity, timestamp, count=1, gender=None, age=None):
         if self.ongoing_speech() is None:
             return None
         speech_id = self.ongoing_speech()["speech_id"]
-        #Insert separate user online record in users document
-        self.users.insert_one({
-            "speech_id": speech_id,
-            "timestamp": timestamp,
-            "user_identity": user_identity,
-            "action": "online"
-        })
+        
+        if user_identity == "audience":
+            self.users.insert_one({
+                "speech_id": speech_id,
+                "timestamp": timestamp,
+                "user_identity": user_identity,
+                "gender": gender,
+                "age": age,
+                "action": "online"
+            })
+        else:
+            #Insert separate user online record in users document
+            self.users.insert_one({
+                "speech_id": speech_id,
+                "timestamp": timestamp,
+                "user_identity": user_identity,
+                "action": "online"
+            })
+            
         #Modify data in speeches document
         result = self.speeches.update_one(
             {
@@ -294,17 +306,29 @@ class dbHandler:
         }})
         return self.get_speech_users(speech_id) if result.matched_count == 1 and result.modified_count == 1 else False
     
-    def minus_user(self, user_identity, timestamp, count=1):
+    def minus_user(self, user_identity, timestamp, count=1, gender=None, age=None):
         if self.ongoing_speech() is None:
             return None
         speech_id = self.ongoing_speech()["speech_id"]
-        #Insert separate user offline record in users document
-        self.users.insert_one({
-            "speech_id": speech_id,
-            "timestamp": timestamp,
-            "user_identity": user_identity,
-            "action": "offline"
-        })
+        
+        if user_identity == "audience":
+            self.users.insert_one({
+                "speech_id": speech_id,
+                "timestamp": timestamp,
+                "user_identity": user_identity,
+                "gender": gender,
+                "age": age,
+                "action": "online"
+            })
+        else:
+            #Insert separate user offline record in users document
+            self.users.insert_one({
+                "speech_id": speech_id,
+                "timestamp": timestamp,
+                "user_identity": user_identity,
+                "action": "offline"
+            })
+            
         #Modify data in speeches document
         result = self.speeches.update_one(
             {
@@ -771,13 +795,13 @@ class Middleware(object):
         else:
             return None
     
-    def add_user(self, timestamp, count=1): 
-        users = self.db.add_user(timestamp, count)
+    def add_user(self, user_identity, timestamp, count=1, gender=None, age=None): 
+        users = self.db.add_user(user_identity, timestamp, count, gender, age)
         if users is not None:                    
             self.send_all("current_users", {"current_users": users})
     
-    def minus_user(self, timestamp, count=1):
-        users = self.db.minus_user(timestamp, count)
+    def minus_user(self, user_identity, timestamp, count=1, gender=None, age=None):
+        users = self.db.minus_user(user_identity, timestamp, count, gender, age)
         if users is not None:
             self.send_all("current_users", {"current_users": users})
     
@@ -846,7 +870,7 @@ class Middleware(object):
                 #Count all existing virtuals as current_users now
                 virtual_audience = len(self.virtuals)
                 if virtual_audience >= 1:
-                    self.add_user(ts, "virtual", virtual_audience)
+                    self.add_user("virtual", ts, virtual_audience)
                 
                 #Redirect all hotspots into full screen broadcast state
                 if self.ENABLE_TEST_HOTSPOT is True:
@@ -949,6 +973,9 @@ class Middleware(object):
                 
         if sender == "audience" or sender == "virtual":                
             if type == "comment" and "comment" in data:
+                if "virtual_id" not in data and "audience_id" not in data:
+                    return
+            
                 #Print out the comment now
                 print "Comment: ", data["comment"]  
                 _username = data["comment"][COMMENT_KEY_NAME]
@@ -956,8 +983,8 @@ class Middleware(object):
                 
                 if sender == "virtual":
                     name = self._id_2_name(data["virtual_id"], self.virtuals)
-                else:
-                    name = "audience"
+                elif sender == "audience":
+                    name = data["audience"]
                 
                 #Add comment to list
                 #Specify identity of the virtual user
@@ -979,10 +1006,18 @@ class Middleware(object):
                 self.send_virtual("comment", {"comment": {"username": _username, "content": _content}})
                 
             elif type == "online":
-                self.add_user(ts, sender)
+                if sender == "audience":
+                    if "audience_id" not in data or "age" not in data or "gender" not in data:
+                        return
+                        
+                self.add_user(sender, ts, 1, data["gender"], data["age"])
                 
             elif type == "offline":
-                self.minus_user(ts, sender)                
+                if sender == "audience":
+                        if "audience_id" not in data or "age" not in data or "gender" not in data:
+                            return
+                            
+                self.minus_user(sender, ts, 1, data["gender"], data["age"])                
             
         if sender == "soapbox" or sender == "audience":    
             if type == "submit" and "speech_info" in data and \
@@ -1029,7 +1064,7 @@ class Middleware(object):
                 ongoing = self.db.ongoing_speech()   
                 if ongoing is not None:
                     #Add itself as a new user to current speech
-                    self.add_user(ts, "virtual")
+                    self.add_user("virtual", ts)
                     
                     #Also send speech info              
                     self.send_virtual("current_speech_info", {"current_speech_info": ongoing["submit_info"], "receiver_id": _virtual_id})
@@ -1062,7 +1097,7 @@ class Middleware(object):
                         if virtual["id"] == data["virtual_id"]:
                             self.virtuals.pop(i)
                             #Remove this virtual as current user
-                            self.minus_user(ts, "virtual")
+                            self.minus_user("virtual", ts)
                             break
                     if self.virtual_speaker_id is not None:
                         self.send_virtual("unregister", {"receiver_id": self.virtual_speaker_id, "virtual_id": data["virtual_id"]})
@@ -1174,12 +1209,16 @@ class Middleware(object):
             if sender == "virtual" and "virtual_id" not in data:
                 return
             
+            if sender == "audience":
+                if "audience_id" not in data or "gender" not in data or "age" not in data:
+                    return
+            
             if sender == "hotspot":
                 name = self._id_2_name(data["hotspot_id"], self.hotspots)
             elif sender == "virtual":
                 name = self._id_2_name(data["virtual_id"], self.virtuals)
-            else:
-                name = "audience"            
+            elif sender == "audience":
+                name = data["audience_id"]        
             
             #Control likes, dislikes, reports info 
             if type == "like":	
@@ -1290,7 +1329,7 @@ def start_middleware():
         middleware.stop()
         
         #If it is in debug mode, then database should be cleaned
-        middleware.clean_database()
+        #middleware.clean_database()
         
         
         

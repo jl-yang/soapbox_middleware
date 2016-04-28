@@ -844,9 +844,9 @@ var middleware = (function() {
 	
 	//API for Audience who will comment on current speech 
     //Currently it is also used by ads website
-	window.Audience = function () {
+	window.Audience = function (audience_id, gender, age) {
 		var self = this;
-		var ws, stomp, send_queue, temp_id;
+		var ws, stomp, send_queue;
 		
         this.itself = "audience";
 		this.connect = connectMiddleware;
@@ -909,11 +909,11 @@ var middleware = (function() {
 		}      
         
         function addMyselfToActiveUsers() {
-            sendMessageToMiddleware("online");
+            sendMessageToMiddleware("online", {"audience_id": audience_id, "gender": gender, "age": age});
         }
         
         function deleteMyselfFromActiveUsers() {
-            sendMessageToMiddleware("offline");
+            sendMessageToMiddleware("offline", {"audience_id": audience_id, "gender": gender, "age": age});
         }
         
         function getCurrentSpeechInfo() {
@@ -926,20 +926,20 @@ var middleware = (function() {
         }
         
         function addLike() {
-			sendMessageToMiddleware("like");
+			sendMessageToMiddleware("like", {"audience_id": audience_id, "gender": gender, "age": age});
 		}
 		
 		function addDislike() {
-			sendMessageToMiddleware("dislike");
+			sendMessageToMiddleware("dislike", {"audience_id": audience_id, "gender": gender, "age": age});
 		}
 		
 		function reportInappropriateContent() {
-			sendMessageToMiddleware("report");
+			sendMessageToMiddleware("report", {"audience_id": audience_id, "gender": gender, "age": age});
 		}
         
         function addCommentToCurrentSpeech(username, comment) {
             //Comments should be just plain string
-            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}});
+            sendMessageToMiddleware("comment", {"comment": {"username": username, "content": comment}, "audience_id": audience_id, "gender": gender, "age": age});
         }
         
         function DeleteSpeechBasedOnPassword(password) {
