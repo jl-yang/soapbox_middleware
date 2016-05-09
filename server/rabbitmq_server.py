@@ -984,7 +984,7 @@ class Middleware(object):
                 if sender == "virtual":
                     name = self._id_2_name(data["virtual_id"], self.virtuals)
                 elif sender == "audience":
-                    name = data["audience"]
+                    name = data["audience_id"]
                 
                 #Add comment to list
                 #Specify identity of the virtual user
