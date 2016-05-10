@@ -563,6 +563,8 @@ var middleware = (function() {
         
         this.onreceivecurrentusers = function onReceiveCurrentUsers(count) {};
         
+        this.onstopspeech = function onStopSpeech() {};
+        
         this.addStream = function(stream){
             //Save local stream object so that it could be added for future offers for virtual
             self.localStream = stream;
@@ -680,6 +682,7 @@ var middleware = (function() {
             //From virtual speaker
             else if(type == "stop_broadcast") {
                 stopSpeechTransmission();
+                self.onstopspeech();
             }
             else if(type == "likes" && data != null && typeof data.likes != "undefined") {
                 self.onreceivelikes(data.likes);

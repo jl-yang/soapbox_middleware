@@ -176,10 +176,15 @@ hotspot.connect(function () {
     );
 });
 
+//Callback for stopping broadcasting
+hotspot.onstopspeech = function() {
+    //Do something when a speech is stopped
+};
+
 //Make sure now you are already connected, otherwise it could fail
-hotspot.like()
-hotspot.dislike()
-hotspot.report()
+hotspot.like();
+hotspot.dislike();
+hotspot.report();
 ```
 
 # Audience
