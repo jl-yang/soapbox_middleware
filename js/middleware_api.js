@@ -87,6 +87,14 @@ var middleware = (function() {
         }
     };
     
+    var sdpConstraintsMonitor = {
+        optional: [],
+        mandatory: {
+            OfferToReceiveAudio: false,
+            OfferToReceiveVideo: false
+        }
+    };
+    
     var sdpConstraintsForHotspot = {
         optional: [],
         mandatory: {
@@ -545,7 +553,9 @@ var middleware = (function() {
 		var self = this;
 		var ws, stomp, send_queue;
 		var PeerConnection, remoteVideo, remoteStream, localStream, hotspot_id;
+        var MonitorConnection, monitorVideo, monitorStream;
 		
+        this.MonitorConnection = MonitorConnection;        
         this.PeerConnection = PeerConnection;
         this.itself = "hotspot";
 		this.setup = setupVideoDisplayObject;
@@ -655,6 +665,41 @@ var middleware = (function() {
                     self.peers[data.virtual_id].close();
                     delete self.peers[data.virtual_id]
                 }                                    
+            }
+            
+            else if (type == "offer-monitor" || type == "ice-candidate-monitor") {
+                if (MonitorConnection != null) {
+                    MonitorConnection = new RTCPeerConnection(PeerConnection_Config);
+                    console.log('Created local peer connection object PeerConnection');
+                    //Gathering local ice 
+                    MonitorConnection.onicecandidate = function _gotLocalIceCandidate(event) {
+                        if (event.candidate !== null) {
+                            sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
+                            console.log('Local ICE candidate gathered');                        
+                        }
+                    };
+                    MonitorConnection.onaddstream = _gotRemoteMonitorStream;
+                }
+                
+                if (type == "offer-monitor") {
+                    MonitorConnection.setRemoteDescription(
+                        new RTCSessionDescription(data.sdp), 
+                        function () {
+                            //Only after creating answer did MonitorConnection start gathering local ice
+                            MonitorConnection.createAnswer(
+                                _gotLocalDescription, 
+                                function (error) {
+                                    console.log('Failed to create answer: ' + error.toString());
+                            }, sdpConstraintsTest);
+                        },
+                        function (error) {
+                            console.log('Error: ' + error.toString());
+                    });
+                }
+                
+                if (type == "ice-candidate-monitor") {
+                    MonitorConnection.addIceCandidate(new RTCIceCandidate(data.ice));
+                }
             }
             
             else if (type == "offer" && data != null && typeof data.sdp != "undefined") {	
@@ -836,7 +881,27 @@ var middleware = (function() {
 			);  
 		}
 		
-		function _gotRemoteStream(event) {			
+        function _gotMonitorLocalDescription(description) {
+			MonitorConnection.setLocalDescription(
+				description,	
+				function () {
+					console.log('Answer sdp generated');
+                    sendMessageToMiddleware('answer-monitor', {'sdp': description || MonitorConnection.localDescription, 'hotspot_id': hotspot_id});
+				}, 
+				function () { 
+					console.log("Set local description error");
+				}
+			);  
+		}
+        
+		function _gotRemoteMonitorStream(event) {			
+			console.log('Received remote monitor stream');
+            console.log(event);
+			self.monitorStream = event.stream;
+			self.monitorVideo.src = URL.createObjectURL(event.stream);
+		}
+        
+        function _gotRemoteStream(event) {			
 			console.log('Received remote stream');
             console.log(event);
 			self.remoteStream = event.stream;
@@ -1015,7 +1080,10 @@ var middleware = (function() {
 		                
         //From soapbox related
         var localStream, speech_info;        
-                
+        
+        // From virtual monitoring user
+        var monitorStream;
+        
         var peers = {};
         this.peers = peers;
         window.peers = peers;
@@ -1040,6 +1108,7 @@ var middleware = (function() {
         };
         
         this.start = startBroadcast;
+        this.startMonitor = startMonitorStream;
         
         //Only for speaker
         this.stop = stopBroadcast;  
@@ -1224,6 +1293,10 @@ var middleware = (function() {
             }
             else if(type == "current_speech_info") {
                 self.onreceivespeechinfo(data.current_speech_info);
+            }            
+            
+            else if (type == "request_monitor_stream_offer" && data != null && typeof data.hotspot_id != "undefined") {
+                createOffer(data.hotspot_id, "hotspot", true);
             }
         }
         
@@ -1341,12 +1414,22 @@ var middleware = (function() {
 			);  
 		}
         
-        function _gotRemoteStream(event) {			
+        function §(event) {			
 			console.log('Received remote stream');
             console.log(event);
+            
 			self.remoteStream = event.stream;
 			self.remoteVideo.src = URL.createObjectURL(event.stream);
 		}
+        
+        function startMonitorStream(stream) {
+            monitorStream = stream;
+            sendMessageToMiddleware("start_monitor_stream", {"virtual_id": virtual_id})
+        }
+        
+        function stopMonitorStream() {
+            
+        }
         
         //Only tells middleware that it wants to start broadcasting now, middleware will ask for offer
 		function startBroadcast(stream, speech_info) {
@@ -1371,7 +1454,7 @@ var middleware = (function() {
         }        
             
         //Called when middleware sends a request_offer message.
-        function createOffer(receiver_id, receiver) {
+        function createOffer(receiver_id, receiver, isRequestingMonitorStream) {
             var options = null;
             if(receiver == "virtual") {
                 options = {
@@ -1388,19 +1471,36 @@ var middleware = (function() {
                     "sdpConstraints": sdpConstraints
                 };            
             } else if (receiver == "hotspot") {
-                options = {
-                    "hotspot_id": receiver_id,
-                    "stream": localStream,
-                    //Got local ice candidates
-                    "onicecandidate": function (event) {
-                        sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': receiver_id});                    
-                    },
-                    "gotLocalDescription": function (description) {      
-                        sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': receiver_id});
-                    },
-                    "sdpConstraints": sdpConstraintsTest,
-                    "onaddstream": self.onaddhotspotstream
-                };   
+                options = {}
+                if (typeof isRequestingMonitorStream == "undefined") {
+                    options = {
+                        "hotspot_id": receiver_id,
+                        "stream": localStream,
+                        //Got local ice candidates
+                        "onicecandidate": function (event) {
+                            sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': receiver_id});                    
+                        },
+                        "gotLocalDescription": function (description) {      
+                            sendMessageToMiddleware("offer", {'sdp': description, 'hotspot_id': receiver_id});
+                        },
+                        "sdpConstraints": sdpConstraintsTest,
+                        "onaddstream": self.onaddhotspotstream
+                    };   
+                } else {
+                    options = {
+                        "hotspot_id": receiver_id,
+                        "stream": monitorStream,
+                        //Got local ice candidates
+                        "onicecandidate": function (event) {
+                            sendMessageToMiddleware('ice-candidate-monitor', {'ice': event.candidate, 'hotspot_id': receiver_id});                    
+                        },
+                        "gotLocalDescription": function (description) {      
+                            sendMessageToMiddleware("offer-monitor", {'sdp': description, 'hotspot_id': receiver_id});
+                        },
+                        "sdpConstraints": sdpConstraintsMonitor
+                    };   
+                    
+                }
             }
             peers[receiver_id] = Offer.createOffer(options);			
 		}

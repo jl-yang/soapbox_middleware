@@ -533,6 +533,9 @@ class Middleware(object):
         self.virtuals = []
         self.virtual_speaker_id = None
         
+        #Virtual monitoring stream
+        self.monitor = {}
+        
         #Database handler
         #self.db = dbHandler(True) if not self.ENABLE_TEST_HOTSPOT else dbHandler(False)
         self.db = dbHandler(False)
@@ -933,7 +936,11 @@ class Middleware(object):
                 #Ask all current online virtual audience to generate offers for this hotspot
                 for i, virtual in enumerate(self.virtuals):
                     self.send_hotspot("request_offer_virtual", {"virtual_id": virtual["id"], "hotspot_id": _hotspot_id})                
-                                    
+                
+                # Send virtual monitoring stream to each hotspot if stream is up
+                if self.monitor.get("virtual_id") is not None:
+                    self.send_virtual("request_monitor_stream_offer", {"receiver_id": self.monitor["virtual_id"], "hotspot_id": _hotspot_id})
+                
                 #Do not Request an offer for hotspot client until soapbox is on and starting broadcasting                    
                 #self.threaded_send_request_offer(_hotspot_id, self.launcher_of_onging_speech(), "hotspot", self.virtual_speaker_id) 
                 
@@ -970,7 +977,9 @@ class Middleware(object):
             #From hotspot to virtual
             elif type == "ice-candidate_hotspot" and "ice" in data and "hotspot_id" in data and "receiver_id" in data:
                 self.send_virtual("ice-candidate_hotspot", {"ice": data["ice"], "hotspot_id": data["hotspot_id"], "receiver_id": data["receiver_id"]})
-                
+            
+            elif type == "answer-monitor" and 
+            
         if sender == "audience" or sender == "virtual":                
             if type == "comment" and "comment" in data:
                 if "virtual_id" not in data and "audience_id" not in data:
@@ -1200,7 +1209,17 @@ class Middleware(object):
                     self.send_virtual("ice-candidate", {"ice": data["ice"], "receiver_id": self.virtual_speaker_id, "hotspot_id": data["hotspot_id"]})
             elif type == "ice-candidate" and "ice" in data and self.virtual_speaker_id is None and "virtual_id" in data:
                 self.send_soapbox("ice-candidate", {"ice": data["ice"], "virtual_id": data["virtual_id"]})
+            
+            elif type == "start_monitor_stream" and "virtual_id" in data:
+                self.monitor["virtual_id"] = data["virtual_id"]
+            
+            elif type == "offer-monitor" and "sdp" in data and "hotspot_id" in data:
+                self.send_hotspot("offer-monitor", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"]})
                 
+            elif type == "ice-candidate-monitor":
+                self.send_hotspot("ice-candidate-monitor", {"ice": data["ice"], "hotspot_id": data["hotspot_id"]})
+            
+            
         #This part must be the end, otherwise will generate unknown errors
         if sender == "hotspot" or sender == "audience" or sender == "virtual":
             if sender == "hotspot" and "hotspot_id" not in data:
