@@ -153,6 +153,10 @@ var hotspot = new Hotspot("unique-hotspot-name");
 var remoteVideo = document.getElementById('remoteVideo'); //It should be your video element
 hotspot.setup(remoteVideo);
 
+// Setup monitor stream for each hotspot
+var monitorVideo = document.getElementById('monitorVideo');
+hotspot.setupMonitor(monitorVideo);
+
 //Connect to the middleware(signaling server)
 //Four params: onConnect, onError, onReceiveMessage, ConfigParams
 hotspot.connect(function () {
@@ -258,7 +262,12 @@ virtual.connect(function () {
     virtual.onaddhotspotstream = function(event) {
         //Should assign it based on your logics
         hotspotVideo.src = URL.createObjectURL(event.stream);
-    }
+    };
+    
+    // Start monitor stream by unique virtual watchman
+    virtual.onregister = function() {
+        virtual.startMonitor(monitorStream);
+    };
 });
 
 //Register callbacks

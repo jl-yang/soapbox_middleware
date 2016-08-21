@@ -558,6 +558,7 @@ var middleware = (function() {
         this.MonitorConnection = MonitorConnection;        
         this.PeerConnection = PeerConnection;
         this.itself = "hotspot";
+        this.setupMonitor = setUpMonitorVideoObject;
 		this.setup = setupVideoDisplayObject;
 		this.connect = connectMiddleware;
         this.register = registerInMiddleware;
@@ -594,13 +595,17 @@ var middleware = (function() {
             sendMessageToMiddleware("unregister", {"hotspot_id": hotspot_id});
 		};
 		
+        function setUpMonitorVideoObject(monitorVideoObject) {
+            self.monitorVideo = monitorVideoObject;
+        }
+        
 		function setupVideoDisplayObject(remoteVideoObject) {
 			self.remoteVideo = remoteVideoObject;
 		}
         
         this.name = typeof name !== "undefined" ? name : "unknown-hotspot";		
         function registerInMiddleware(){
-            sendMessageToMiddleware("register", {"name": name});
+            sendMessageToMiddleware("register", {"name": this.name});
         }
         
         //Called when middleware sends a request_offer_virtual message.
@@ -668,13 +673,13 @@ var middleware = (function() {
             }
             
             else if (type == "offer-monitor" || type == "ice-candidate-monitor") {
-                if (MonitorConnection != null) {
+                if (MonitorConnection == null) {
                     MonitorConnection = new RTCPeerConnection(PeerConnection_Config);
                     console.log('Created local peer connection object PeerConnection');
                     //Gathering local ice 
                     MonitorConnection.onicecandidate = function _gotLocalIceCandidate(event) {
                         if (event.candidate !== null) {
-                            sendMessageToMiddleware('ice-candidate', {'ice': event.candidate, 'hotspot_id': hotspot_id});
+                            sendMessageToMiddleware('ice-candidate-monitor', {'ice': event.candidate, 'hotspot_id': hotspot_id});
                             console.log('Local ICE candidate gathered');                        
                         }
                     };
@@ -687,7 +692,7 @@ var middleware = (function() {
                         function () {
                             //Only after creating answer did MonitorConnection start gathering local ice
                             MonitorConnection.createAnswer(
-                                _gotLocalDescription, 
+                                _gotMonitorLocalDescription, 
                                 function (error) {
                                     console.log('Failed to create answer: ' + error.toString());
                             }, sdpConstraintsTest);
@@ -1298,6 +1303,18 @@ var middleware = (function() {
             else if (type == "request_monitor_stream_offer" && data != null && typeof data.hotspot_id != "undefined") {
                 createOffer(data.hotspot_id, "hotspot", true);
             }
+            
+            else if (type == "answer-monitor") {
+                peers[data.hotspot_id].setRemoteDescription(data.sdp,
+                        function() {
+                            console.debug("answer-monitor received from hotspot: ", data.hotspot_id);
+                    });		
+            }
+            
+            else if (type == "ice-candidate-monitor") {
+                peers[data.hotspot_id].addIceCandidate(data.ice);
+                console.debug("ice-candidate-monitor received from hotspot: ", data.hotspot_id);
+            }
         }
         
         function waitForHotspotStream(hotspot_id) {
@@ -1414,7 +1431,7 @@ var middleware = (function() {
 			);  
 		}
         
-        function §(event) {			
+        function _gotRemoteStream(event) {			
 			console.log('Received remote stream');
             console.log(event);
             
@@ -1472,7 +1489,7 @@ var middleware = (function() {
                 };            
             } else if (receiver == "hotspot") {
                 options = {}
-                if (typeof isRequestingMonitorStream == "undefined") {
+                if (typeof isRequestingMonitorStream == "undefined" || isRequestingMonitorStream == false) {
                     options = {
                         "hotspot_id": receiver_id,
                         "stream": localStream,
@@ -1524,8 +1541,6 @@ var middleware = (function() {
                 self.stomp.send(self.send_queue, {}, JSON.stringify(message_object));
             }
         }
-        
-		
     };
     
 })();

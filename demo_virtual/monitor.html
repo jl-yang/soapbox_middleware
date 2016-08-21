@@ -1,0 +1,53 @@
+<html>
+	<head>
+		<title>Monitor client example</title>
+		<script src="../js/sockjs.js"></script>
+		<script src="../js/stomp.js"></script>		
+		<script src="../js/adapter.js"></script>
+		<script src="../js/middleware_api.js"></script>
+	</head>
+	<body>
+        <div id="container">
+            <video id="localVideo" autoplay></video>   
+        </div>
+		<script>
+            var localVideo = document.getElementById('localVideo');
+			var self = this;
+			var monitorStream;
+            
+			console.log('Requesting local stream');
+            
+			navigator.getUserMedia(
+				{
+					video: true,
+					audio: true
+				}, 
+				gotStream, 
+				function (error) {
+					console.log('navigator.getUserMedia error: ', error);
+				}
+			);
+			function gotStream(stream) {   
+				console.log('Received local stream');
+				monitorStream = stream;
+                console.log(stream);
+				localVideo.src = URL.createObjectURL(stream); 
+                
+                var virtual = new Virtual("" + Math.random());
+                
+                virtual.connect(function(){
+                    virtual.register();
+                    virtual.onregister = function() {
+                        virtual.startMonitor(monitorStream);   
+                    };                                     
+				});	
+                
+                window.onbeforeunload = function(event) {
+                    //Only for speaker
+                    virtual.stopMonitor();
+                }
+			}
+		</script>
+	</body>
+	
+</html>

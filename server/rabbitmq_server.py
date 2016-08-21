@@ -715,7 +715,8 @@ class Middleware(object):
         data = msgObj.get("data")
         ts = msgObj.get("timestamp")
         
-        if type != "ice-candidate" and type != "ice-candidate_hotspot":
+        if type != "ice-candidate" and type != "ice-candidate_hotspot" \
+                and type != "ice-candidate-monitor":
             if is_receiving is True:
                 safe_print( " [x] Message received.      Type:" + \
                     "{0: <30}".format(type) + \
@@ -732,7 +733,6 @@ class Middleware(object):
         return type, sender, receiver, data, ts
         
     def _threaded_send_request_offer(self, client_id, launcher, receiver, virtual_speaker_id):
-        print "Now IS_SOAPBOX_READY:", self.IS_SOAPBOX_READY
         lock = Lock()
         lock.acquire()
         try:
@@ -938,6 +938,7 @@ class Middleware(object):
                     self.send_hotspot("request_offer_virtual", {"virtual_id": virtual["id"], "hotspot_id": _hotspot_id})                
                 
                 # Send virtual monitoring stream to each hotspot if stream is up
+                print "self.monitor: ", self.monitor
                 if self.monitor.get("virtual_id") is not None:
                     self.send_virtual("request_monitor_stream_offer", {"receiver_id": self.monitor["virtual_id"], "hotspot_id": _hotspot_id})
                 
@@ -978,7 +979,11 @@ class Middleware(object):
             elif type == "ice-candidate_hotspot" and "ice" in data and "hotspot_id" in data and "receiver_id" in data:
                 self.send_virtual("ice-candidate_hotspot", {"ice": data["ice"], "hotspot_id": data["hotspot_id"], "receiver_id": data["receiver_id"]})
             
-            elif type == "answer-monitor" and 
+            elif type == "answer-monitor" and "sdp" in data and "hotspot_id" in data:
+                self.send_virtual("answer-monitor", {"sdp": data["sdp"], "hotspot_id": data["hotspot_id"], "receiver_id": self.monitor["virtual_id"]})
+            
+            elif type == "ice-candidate-monitor" and "ice" in data and "hotspot_id" in data:
+                self.send_virtual("ice-candidate-monitor", {"ice": data["ice"], "hotspot_id": data["hotspot_id"], "receiver_id": self.monitor["virtual_id"]})
             
         if sender == "audience" or sender == "virtual":                
             if type == "comment" and "comment" in data:
@@ -1348,7 +1353,7 @@ def start_middleware():
         middleware.stop()
         
         #If it is in debug mode, then database should be cleaned
-        #middleware.clean_database()
+        middleware.clean_database()
         
         
         

@@ -10,16 +10,19 @@
 		<div id="container">
 			<video id="remoteVideo" autoplay muted></video>
             <video id="localVideo" autoplay muted></video>
+            <video id="monitorVideo" autoplay muted></video>
 		</div>
 		
 		<script>
 			var remoteVideo = document.getElementById('remoteVideo');
 			var localVideo = document.getElementById('localVideo');
+            var monitorVideo = document.getElementById('monitorVideo');
 			//Example usage
 			
 			var hotspot = new Hotspot();
             
 			hotspot.setup(remoteVideo);
+            hotspot.setupMonitor(monitorVideo);
             
 			hotspot.connect(function () {                
                 hotspot.register();
