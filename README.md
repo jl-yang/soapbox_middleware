@@ -418,3 +418,9 @@ http://stackoverflow.com/questions/10830357/javascript-toisostring-ignores-timez
 
 #Notice
 Run MongoDB instance locally for now: mongod
+
+#Dependencies
+1. Mongodb
+2. Python 2.7+, pip
+3. `pip install pika requests pymongo`
+4. (Optional) Install nodejs and [adminmongo](https://github.com/mrvautin/adminMongo) for visualizing mongodb data
